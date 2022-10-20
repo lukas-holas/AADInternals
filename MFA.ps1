@@ -414,9 +414,9 @@ function Set-UserMFAApps
             else # Other errors
             {
                 $property = $err.'odata.error'.values[0].value
-                $error =    $err.'odata.error'.values[1].value
+                $err =    $err.'odata.error'.values[1].value
 
-                Write-Error "$($property): $error"
+                Write-Error "$($property): $err"
             }
 
         }

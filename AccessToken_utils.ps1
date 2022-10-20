@@ -36,6 +36,7 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
     "adibizaux" =           "74658136-14ec-4630-ad9b-26e160ff0fc6" # Azure portal UI "ADIbizaUX"
     "msmamservice" =        "27922004-5251-4030-b22d-91ecd9a37ea4" # MS MAM Service API
     "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346" # Teams web client
+    "teamsservices" =       "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe" # Microsoft Teams Services
     "azuregraphclientint" = "7492bca1-9461-4d94-8eb8-c17896c61205" # Microsoft Azure Graph Client Library 2.1.9 Internal
     "azure_mgmt" =          "84070985-06ea-473d-82fe-eb82b4011c9d" # Windows Azure Service Management API
     "az" =                  "1950a258-227b-4e31-a9cf-717495945fc2" # AZ PowerShell Module
@@ -80,15 +81,15 @@ $resources=@{
 #>
 
 # Stored tokens (access & refresh)
-$tokens=@{}
-$refresh_tokens=@{}
+$tokens = @{}
+$refresh_tokens = @{}
 
 ## UTILITY FUNCTIONS FOR API COMMUNICATIONS
 
 # Return user's login information
 function Get-LoginInformation
 {
-<#
+    <#
     .SYNOPSIS
     Returns authentication information of the given user or domain
 
@@ -150,52 +151,52 @@ function Get-LoginInformation
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Domain',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Domain', Mandatory = $True)]
         [String]$Domain,
 
-        [Parameter(ParameterSetName='User',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'User', Mandatory = $True)]
         [String]$UserName
 
     )
     Process
     {
-        if([string]::IsNullOrEmpty($UserName))
+        if ([string]::IsNullOrEmpty($UserName))
         {
             $isDomain = $true
             $UserName = "nn@$Domain"
         }
 
         # Gather login information using different APIs
-        $realm1=Get-UserRealm -UserName $UserName          # common/userrealm API 1.0
-        $realm2=Get-UserRealmExtended -UserName $UserName  # common/userrealm API 2.0
-        $realm3=Get-UserRealmV2 -UserName $UserName        # GetUserRealm.srf (used in the old Office 365 login experience)
-        $realm4=Get-CredentialType -UserName $UserName     # common/GetCredentialType (used in the "new" Office 365 login experience)
+        $realm1 = Get-UserRealm -UserName $UserName          # common/userrealm API 1.0
+        $realm2 = Get-UserRealmExtended -UserName $UserName  # common/userrealm API 2.0
+        $realm3 = Get-UserRealmV2 -UserName $UserName        # GetUserRealm.srf (used in the old Office 365 login experience)
+        $realm4 = Get-CredentialType -UserName $UserName     # common/GetCredentialType (used in the "new" Office 365 login experience)
 
         # Create a return object
         $attributes = @{
-            "Account Type" = $realm1.account_type # Managed or federated
-            "Domain Name" = $realm1.domain_name
-            "Cloud Instance" = $realm1.cloud_instance_name
-            "Cloud Instance audience urn" = $realm1.cloud_audience_urn
-            "Federation Brand Name" = $realm2.FederationBrandName
-            "Tenant Locale" = $realm2.TenantBrandingInfo.Locale
-            "Tenant Banner Logo" = $realm2.TenantBrandingInfo.BannerLogo
-            "Tenant Banner Illustration" = $realm2.TenantBrandingInfo.Illustration
-            "State" = $realm3.State
-            "User State" = $realm3.UserState
-            "Exists" = $realm4.IfExistsResult
-            "Throttle Status" = $realm4.ThrottleStatus
-            "Pref Credential" = $realm4.Credentials.PrefCredential
-            "Has Password" = $realm4.Credentials.HasPassword
-            "Domain Type" = $realm4.EstsProperties.DomainType
+            "Account Type"                         = $realm1.account_type # Managed or federated
+            "Domain Name"                          = $realm1.domain_name
+            "Cloud Instance"                       = $realm1.cloud_instance_name
+            "Cloud Instance audience urn"          = $realm1.cloud_audience_urn
+            "Federation Brand Name"                = $realm2.FederationBrandName
+            "Tenant Locale"                        = $realm2.TenantBrandingInfo.Locale
+            "Tenant Banner Logo"                   = $realm2.TenantBrandingInfo.BannerLogo
+            "Tenant Banner Illustration"           = $realm2.TenantBrandingInfo.Illustration
+            "State"                                = $realm3.State
+            "User State"                           = $realm3.UserState
+            "Exists"                               = $realm4.IfExistsResult
+            "Throttle Status"                      = $realm4.ThrottleStatus
+            "Pref Credential"                      = $realm4.Credentials.PrefCredential
+            "Has Password"                         = $realm4.Credentials.HasPassword
+            "Domain Type"                          = $realm4.EstsProperties.DomainType
 
-            "Federation Protocol" = $realm1.federation_protocol
-            "Federation Metadata Url" = $realm1.federation_metadata_url
+            "Federation Protocol"                  = $realm1.federation_protocol
+            "Federation Metadata Url"              = $realm1.federation_metadata_url
             "Federation Active Authentication Url" = $realm1.federation_active_auth_url
-            "Authentication Url" = $realm2.AuthUrl
-            "Consumer Domain" = $realm2.ConsumerDomain
-            "Federation Global Version" = $realm3.FederationGlobalVersion
-            "Desktop Sso Enabled" = $realm4.EstsProperties.DesktopSsoEnabled
+            "Authentication Url"                   = $realm2.AuthUrl
+            "Consumer Domain"                      = $realm2.ConsumerDomain
+            "Federation Global Version"            = $realm3.FederationGlobalVersion
+            "Desktop Sso Enabled"                  = $realm4.EstsProperties.DesktopSsoEnabled
         }
       
         # Return
@@ -206,7 +207,7 @@ function Get-LoginInformation
 # Return user's authentication realm from common/userrealm using API 1.0
 function Get-UserRealm
 {
-<#
+    <#
     .SYNOPSIS
     Returns authentication realm of the given user
 
@@ -238,7 +239,7 @@ function Get-UserRealm
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$UserName
 
     )
@@ -246,7 +247,7 @@ function Get-UserRealm
     {
       
         # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=1.0")
+        $userRealm = Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName" + "?api-version=1.0")
 
         # Verbose
         Write-Verbose "USER REALM $($userRealm | Out-String)"
@@ -259,7 +260,7 @@ function Get-UserRealm
 # Return user's authentication realm from common/userrealm using API 2.0
 function Get-UserRealmExtended
 {
-<#
+    <#
     .SYNOPSIS
     Returns authentication realm of the given user
 
@@ -295,7 +296,7 @@ function Get-UserRealmExtended
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$UserName
 
     )
@@ -303,7 +304,7 @@ function Get-UserRealmExtended
     {
       
         # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=2.0")
+        $userRealm = Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName" + "?api-version=2.0")
 
         # Verbose
         Write-Verbose "USER REALM $($userRealm | Out-String)"
@@ -316,7 +317,7 @@ function Get-UserRealmExtended
 # Return user's authentication realm from GetUserRealm.srf (used in the old Office 365 login experience)
 function Get-UserRealmV2
 {
-<#
+    <#
     .SYNOPSIS
     Returns authentication realm of the given user
 
@@ -351,7 +352,7 @@ function Get-UserRealmV2
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$UserName
 
     )
@@ -359,7 +360,7 @@ function Get-UserRealmV2
     {
       
         # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/GetUserRealm.srf?login=$UserName")
+        $userRealm = Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/GetUserRealm.srf?login=$UserName")
 
         # Verbose
         Write-Verbose "USER REALM: $($userRealm | Out-String)"
@@ -372,7 +373,7 @@ function Get-UserRealmV2
 # Return user's authentication type information from common/GetCredentialType
 function Get-CredentialType
 {
-<#
+    <#
     .SYNOPSIS
     Returns authentication information of the given user
 
@@ -419,9 +420,9 @@ function Get-CredentialType
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$UserName,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$FlowToken
 
     )
@@ -429,18 +430,18 @@ function Get-CredentialType
     {
         # Create a body for REST API request
         $body = @{
-            "username"=$UserName
-            "isOtherIdpSupported"="true"
-	        "checkPhones"="true"
-	        "isRemoteNGCSupported"="false"
-	        "isCookieBannerShown"="false"
-	        "isFidoSupported"="false"
-            "originalRequest"=""
-            "flowToken"=$FlowToken
+            "username"             = $UserName
+            "isOtherIdpSupported"  = "true"
+            "checkPhones"          = "true"
+            "isRemoteNGCSupported" = "false"
+            "isCookieBannerShown"  = "false"
+            "isFidoSupported"      = "false"
+            "originalRequest"      = ""
+            "flowToken"            = $FlowToken
         }
       
         # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/GetCredentialType") -ContentType "application/json; charset=UTF-8" -Method POST -Body ($body|ConvertTo-Json)
+        $userRealm = Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/GetCredentialType") -ContentType "application/json; charset=UTF-8" -Method POST -Body ($body | ConvertTo-Json)
 
         # Verbose
         Write-Verbose "CREDENTIAL TYPE: $($userRealm | Out-String)"
@@ -454,7 +455,7 @@ function Get-CredentialType
 # Mar 21 2019
 function Get-OpenIDConfiguration
 {
-<#
+    <#
     .SYNOPSIS
     Returns OpenID configuration of the given domain or user
 
@@ -496,22 +497,22 @@ function Get-OpenIDConfiguration
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Domain',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Domain', Mandatory = $True)]
         [String]$Domain,
 
-        [Parameter(ParameterSetName='User',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'User', Mandatory = $True)]
         [String]$UserName
     )
     Process
     {
-        if([String]::IsNullOrEmpty($Domain))
+        if ([String]::IsNullOrEmpty($Domain))
         {
             $Domain = $UserName.Split("@")[1]
         }
 
       
         # Call the API
-        $openIdConfig=Invoke-RestMethod -UseBasicParsing "https://login.microsoftonline.com/$domain/.well-known/openid-configuration"
+        $openIdConfig = Invoke-RestMethod -UseBasicParsing "https://login.microsoftonline.com/$domain/.well-known/openid-configuration"
 
         # Return
         $openIdConfig
@@ -521,7 +522,7 @@ function Get-OpenIDConfiguration
 # Get the tenant ID for the given user/domain/accesstoken
 function Get-TenantID
 {
-<#
+    <#
     .SYNOPSIS
     Returns TenantID of the given domain, user, or AccessToken
 
@@ -540,20 +541,20 @@ function Get-TenantID
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Domain',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Domain', Mandatory = $True)]
         [String]$Domain,
 
-        [Parameter(ParameterSetName='User',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'User', Mandatory = $True)]
         [String]$UserName,
 
-        [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
+        [Parameter(ParameterSetName = 'AccessToken', Mandatory = $True)]
         [String]$AccessToken
     )
     Process
     {
-        if([String]::IsNullOrEmpty($AccessToken))
+        if ([String]::IsNullOrEmpty($AccessToken))
         {
-            if([String]::IsNullOrEmpty($Domain))
+            if ([String]::IsNullOrEmpty($Domain))
             {
                 $Domain = $UserName.Split("@")[1]
             }
@@ -571,7 +572,7 @@ function Get-TenantID
         }
         else
         {
-            $TenantId=(Read-Accesstoken($AccessToken)).tid
+            $TenantId = (Read-Accesstoken($AccessToken)).tid
         }
 
         # Return
@@ -584,7 +585,7 @@ function Is-AccessTokenExpired
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$AccessToken
         
     )
@@ -592,10 +593,10 @@ function Is-AccessTokenExpired
     {
         # Read the token
         $token = Read-Accesstoken($AccessToken)
-        $now=(Get-Date).ToUniversalTime()
+        $now = (Get-Date).ToUniversalTime()
 
         # Get the expiration time
-        $exp=$epoch.Date.AddSeconds($token.exp)
+        $exp = $epoch.Date.AddSeconds($token.exp)
 
         # Compare and return
         $retVal = $now -ge $exp
@@ -610,15 +611,15 @@ function Is-AccessTokenValid
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$AccessToken
     )
     Process
     {
         # Token sections
-        $sections =  $AccessToken.Split(".")
-        $header =    $sections[0]
-        $payload =   $sections[1]
+        $sections = $AccessToken.Split(".")
+        $header = $sections[0]
+        $payload = $sections[1]
         $signature = $sections[2]
 
         $signatureValid = $false
@@ -630,28 +631,28 @@ function Is-AccessTokenValid
         }
 
         # Convert the token to string and json
-        $headerBytes=[System.Convert]::FromBase64String($header)
-        $headerArray=[System.Text.Encoding]::ASCII.GetString($headerBytes)
-        $headerObj=$headerArray | ConvertFrom-Json
+        $headerBytes = [System.Convert]::FromBase64String($header)
+        $headerArray = [System.Text.Encoding]::ASCII.GetString($headerBytes)
+        $headerObj = $headerArray | ConvertFrom-Json
 
         # Get the signing key
-        $KeyId=$headerObj.kid
+        $KeyId = $headerObj.kid
         Write-Debug "PARSED TOKEN HEADER: $($headerObj | Format-List | Out-String)"
 
         # The algorithm should be RSA with SHA-256, i.e. RS256
-        if($headerObj.alg -eq "RS256")
+        if ($headerObj.alg -eq "RS256")
         {
             # Get the public certificate
             $publicCert = Get-APIKeys -KeyId $KeyId
             Write-Debug "TOKEN SIGNING CERT: $publicCert"
-            $certBin=[convert]::FromBase64String($publicCert)
+            $certBin = [convert]::FromBase64String($publicCert)
 
             # Construct the JWT data to be verified
-            $dataToVerify="{0}.{1}" -f $header,$payload
+            $dataToVerify = "{0}.{1}" -f $header, $payload
             $dataBin = [text.encoding]::UTF8.GetBytes($dataToVerify)
 
             # Remove the Base64 URL encoding from the signature and add padding
-            $signature=$signature.Replace("-","+").Replace("_","/")
+            $signature = $signature.Replace("-", "+").Replace("_", "/")
             while ($signature.Length % 4)
             {
                 $signature += "="
@@ -659,43 +660,43 @@ function Is-AccessTokenValid
             $signBytes = [convert]::FromBase64String($signature)
 
             # Extract the modulus and exponent from the certificate
-            for($a=0;$a -lt $certBin.Length ; $a++)
+            for ($a = 0; $a -lt $certBin.Length ; $a++)
             {
                 # Read the bytes    
-                $byte =  $certBin[$a] 
-                $nByte = $certBin[$a+1] 
+                $byte = $certBin[$a] 
+                $nByte = $certBin[$a + 1] 
 
                 # We are only interested in 0x02 tag where our modulus is hidden..
-                if($byte -eq 0x02 -and $nByte -band 0x80)
+                if ($byte -eq 0x02 -and $nByte -band 0x80)
                 {
                     $a++
-                    if($nbyte -band 0x02)
+                    if ($nbyte -band 0x02)
                     {
-                        $byteCount = [System.BitConverter]::ToInt16($certBin[$($a+2)..$($a+1)],0)
-                        $a+=3
+                        $byteCount = [System.BitConverter]::ToInt16($certBin[$($a + 2)..$($a + 1)], 0)
+                        $a += 3
                     }
-                    elseif($nbyte -band 0x01)
+                    elseif ($nbyte -band 0x01)
                     {
-                        $byteCount = $certBin[$($a+1)]
-                        $a+=2
+                        $byteCount = $certBin[$($a + 1)]
+                        $a += 2
                     }
 
                     # If the first byte is 0x00, skip it
-                    if($certBin[$a] -eq 0x00)
+                    if ($certBin[$a] -eq 0x00)
                     {
                         $a++
                         $byteCount--
                     }
 
                     # Now we have the modulus!
-                    $modulus = $certBin[$a..$($a+$byteCount-1)]
+                    $modulus = $certBin[$a..$($a + $byteCount - 1)]
 
                     # Next byte value is the exponent
-                    $a+=$byteCount
-                    if($certBin[$a++] -eq 0x02)
+                    $a += $byteCount
+                    if ($certBin[$a++] -eq 0x02)
                     {
                         $byteCount = $certBin[$a++]
-                        $exponent =  $certBin[$a..$($a+$byteCount-1)]
+                        $exponent = $certBin[$a..$($a + $byteCount - 1)]
                         Write-Debug "MODULUS:  $(Convert-ByteArrayToHex -Bytes $modulus)"
                         Write-Debug "EXPONENT: $(Convert-ByteArrayToHex -Bytes $exponent)"
                         break
@@ -707,7 +708,7 @@ function Is-AccessTokenValid
                 }
             }
 
-            if($exponent -and $modulus)
+            if ($exponent -and $modulus)
             {
                 # Create the RSA and other required objects
                 $rsa = New-Object -TypeName System.Security.Cryptography.RSACryptoServiceProvider
@@ -718,7 +719,7 @@ function Is-AccessTokenValid
                 $rsaparameters.Modulus = $modulus
                 $rsa.ImportParameters($rsaParameters)
                 
-                $signatureValid = $rsa.VerifyData($dataBin, $signBytes,[System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+                $signatureValid = $rsa.VerifyData($dataBin, $signBytes, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
 
                 $rsa.Dispose() 
                   
@@ -741,12 +742,12 @@ function Get-OAuthInfoUsingSAML
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Resource,
-        [Parameter(Mandatory=$False)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
+        [Parameter(Mandatory = $False)]
+        [String]$ClientId = "1b730954-1685-4b74-9bfd-dac224a7b894"
     )
     Begin
     {
@@ -757,28 +758,28 @@ function Get-OAuthInfoUsingSAML
     }
     Process
     {
-        $encodedSamlToken= [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($SAMLToken))
+        $encodedSamlToken = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($SAMLToken))
         # Debug
         Write-Debug "SAML TOKEN: $samlToken"
         Write-Debug "ENCODED SAML TOKEN: $encodedSamlToken"
 
         # Create a body for API request
         $body = @{
-            "resource"=$Resource
-            "client_id"=$ClientId
-            "grant_type"="urn:ietf:params:oauth:grant-type:saml1_1-bearer"
-            "assertion"=$encodedSamlToken
-            "scope"="openid"
+            "resource"   = $Resource
+            "client_id"  = $ClientId
+            "grant_type" = "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
+            "assertion"  = $encodedSamlToken
+            "scope"      = "openid"
         }
 
         # Debug
         Write-Debug "FED AUTHENTICATION BODY: $($body | Out-String)"
 
         # Set the content type and call the Microsoft Online authentication API
-        $contentType="application/x-www-form-urlencoded"
+        $contentType = "application/x-www-form-urlencoded"
         try
         {
-            $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+            $jsonResponse = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
         }
         catch
         {
@@ -794,12 +795,12 @@ function Get-OAuthInfo
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Resource,
-        [Parameter(Mandatory=$False)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
+        [Parameter(Mandatory = $False)]
+        [String]$ClientId = "1b730954-1685-4b74-9bfd-dac224a7b894"
     )
     Begin
     {
@@ -814,34 +815,34 @@ function Get-OAuthInfo
         $userRealm = Get-UserRealm($Credentials.UserName)
 
         # Check the authentication type
-        if($userRealm.account_type -eq "Unknown")
+        if ($userRealm.account_type -eq "Unknown")
         {
             Write-Error "User type  of $($Credentials.Username) is Unknown!"
             return $null
         }
-        elseif($userRealm.account_type -eq "Managed")
+        elseif ($userRealm.account_type -eq "Managed")
         {
             # If authentication type is managed, we authenticate directly against Microsoft Online
             # with user name and password to get access token
 
             # Create a body for REST API request
             $body = @{
-                "resource"=$Resource
-                "client_id"=$ClientId
-                "grant_type"="password"
-                "username"=$Credentials.UserName
-                "password"=$Credentials.GetNetworkCredential().Password
-                "scope"="openid"
+                "resource"   = $Resource
+                "client_id"  = $ClientId
+                "grant_type" = "password"
+                "username"   = $Credentials.UserName
+                "password"   = $Credentials.GetNetworkCredential().Password
+                "scope"      = "openid"
             }
 
             # Debug
             Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
 
             # Set the content type and call the Microsoft Online authentication API
-            $contentType="application/x-www-form-urlencoded"
+            $contentType = "application/x-www-form-urlencoded"
             try
             {
-                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+                $jsonResponse = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
             }
             catch
             {
@@ -854,39 +855,39 @@ function Get-OAuthInfo
             # to fetch SAML token and then get access token from Microsoft Online
 
             # Get the federation metadata url from user realm
-            $federation_metadata_url=$userRealm.federation_metadata_url
+            $federation_metadata_url = $userRealm.federation_metadata_url
 
             # Call the API to get metadata
-            [xml]$response=Invoke-RestMethod -UseBasicParsing -Uri $federation_metadata_url 
+            [xml]$response = Invoke-RestMethod -UseBasicParsing -Uri $federation_metadata_url 
 
             # Get the url of identity provider endpoint.
             # Note! Tested only with AD FS - others may or may not work
-            $federation_url=($response.definitions.service.port | where name -eq "UserNameWSTrustBinding_IWSTrustFeb2005Async").address.location
+            $federation_url = ($response.definitions.service.port | where name -eq "UserNameWSTrustBinding_IWSTrustFeb2005Async").address.location
 
             # login.live.com
             # TODO: Fix
             #$federation_url=$response.EntityDescriptor.RoleDescriptor[1].PassiveRequestorEndpoint.EndpointReference.Address
 
             # Set credentials and other needed variables
-            $username=$Credentials.UserName
-            $password=$Credentials.GetNetworkCredential().Password
-            $created=(Get-Date).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $expires=(Get-Date).AddMinutes(10).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $message_id=(New-Guid).ToString()
-            $user_id=(New-Guid).ToString()
+            $username = $Credentials.UserName
+            $password = $Credentials.GetNetworkCredential().Password
+            $created = (Get-Date).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".", ":")
+            $expires = (Get-Date).AddMinutes(10).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".", ":")
+            $message_id = (New-Guid).ToString()
+            $user_id = (New-Guid).ToString()
 
             # Set headers
             $headers = @{
-                "SOAPAction"="http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue"
-                "Host"=$federation_url.Split("/")[2]
-                "client-request-id"=(New-Guid).toString()
+                "SOAPAction"        = "http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue"
+                "Host"              = $federation_url.Split("/")[2]
+                "client-request-id" = (New-Guid).toString()
             }
 
             # Debug
             Write-Debug "FED AUTHENTICATION HEADERS: $($headers | Out-String)"
             
             # Create the SOAP envelope
-            $envelope=@"
+            $envelope = @"
                 <s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope' xmlns:a='http://www.w3.org/2005/08/addressing' xmlns:u='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd'>
 	                <s:Header>
 		                <a:Action s:mustUnderstand='1'>http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue</a:Action>
@@ -923,12 +924,12 @@ function Get-OAuthInfo
             Write-Debug "FED AUTHENTICATION: $envelope"
 
             # Set the content type and call the authentication service            
-            $contentType="application/soap+xml"
-            [xml]$xmlResponse=Invoke-RestMethod -UseBasicParsing -Uri $federation_url -ContentType $contentType -Method POST -Body $envelope -Headers $headers
+            $contentType = "application/soap+xml"
+            [xml]$xmlResponse = Invoke-RestMethod -UseBasicParsing -Uri $federation_url -ContentType $contentType -Method POST -Body $envelope -Headers $headers
 
             # Get the SAML token from response and encode it with Base64
-            $samlToken=$xmlResponse.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.Assertion.OuterXml
-            $encodedSamlToken= [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($samlToken))
+            $samlToken = $xmlResponse.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.Assertion.OuterXml
+            $encodedSamlToken = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($samlToken))
 
             $jsonResponse = Get-OAuthInfoUsingSAML -SAMLToken $samlToken -Resource $Resource -ClientId $ClientId
         }
@@ -944,7 +945,7 @@ function Get-OAuthInfo
 # Parse access token and return it as PS object
 function Read-Accesstoken
 {
-<#
+    <#
     .SYNOPSIS
     Extract details from the given Access Token
 
@@ -1022,7 +1023,7 @@ function Read-Accesstoken
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [Parameter(Mandatory = $True, ValueFromPipeline)]
         [String]$AccessToken,
         [Parameter()]
         [Switch]$ShowDate,
@@ -1033,27 +1034,27 @@ function Read-Accesstoken
     Process
     {
         # Token sections
-        $sections =  $AccessToken.Split(".")
-        $header =    $sections[0]
-        $payload =   $sections[1]
+        $sections = $AccessToken.Split(".")
+        $header = $sections[0]
+        $payload = $sections[1]
         $signature = $sections[2]
 
         # Convert the token to string and json
         $payloadString = Convert-B64ToText -B64 $payload
-        $payloadObj=$payloadString | ConvertFrom-Json
+        $payloadObj = $payloadString | ConvertFrom-Json
 
-        if($ShowDate)
+        if ($ShowDate)
         {
             # Show dates
-            $payloadObj.exp=($epoch.Date.AddSeconds($payloadObj.exp)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $payloadObj.iat=($epoch.Date.AddSeconds($payloadObj.iat)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $payloadObj.nbf=($epoch.Date.AddSeconds($payloadObj.nbf)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+            $payloadObj.exp = ($epoch.Date.AddSeconds($payloadObj.exp)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".", ":")
+            $payloadObj.iat = ($epoch.Date.AddSeconds($payloadObj.iat)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".", ":")
+            $payloadObj.nbf = ($epoch.Date.AddSeconds($payloadObj.nbf)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".", ":")
         }
 
-        if($Validate)
+        if ($Validate)
         {
             # Check the signature
-            if((Is-AccessTokenValid -AccessToken $AccessToken))
+            if ((Is-AccessTokenValid -AccessToken $AccessToken))
             {
                 Write-Verbose "Access Token signature successfully verified"
             }
@@ -1063,7 +1064,7 @@ function Read-Accesstoken
             }
 
             # Check the timestamp
-            if((Is-AccessTokenExpired -AccessToken $AccessToken))
+            if ((Is-AccessTokenExpired -AccessToken $AccessToken))
             {
                 Write-Error "Access Token is expired"
             }
@@ -1089,39 +1090,39 @@ function Prompt-Credentials
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Resource,
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
-        [Parameter(Mandatory=$False)]
+        [String]$ClientId = "1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
+        [Parameter(Mandatory = $False)]
         [String]$Tenant,
-        [Parameter(Mandatory=$False)]
-        [bool]$ForceMFA=$false
+        [Parameter(Mandatory = $False)]
+        [bool]$ForceMFA = $false
     )
     Process
     {
         # Check the tenant
-        if([String]::IsNullOrEmpty($Tenant))        
+        if ([String]::IsNullOrEmpty($Tenant))        
         {
             $Tenant = "common"
         }
 
         # Set variables
-        $auth_redirect= Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
-        $client_id=     $ClientId # Usually should be graph_api
+        $auth_redirect = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+        $client_id = $ClientId # Usually should be graph_api
                         
         # Create the url
-        $request_id=(New-Guid).ToString()
-        $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
+        $request_id = (New-Guid).ToString()
+        $url = "https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
 
-        if($ForceMFA)
+        if ($ForceMFA)
         {
-            $url+="&amr_values=mfa"
+            $url += "&amr_values=mfa"
         }
 
         # Azure AD Join
-        if($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") 
+        if ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") 
         {
-                $auth_redirect="ms-aadj-redir://auth/drs"
+            $auth_redirect = "ms-aadj-redir://auth/drs"
         }
 
         # Create the form
@@ -1133,9 +1134,10 @@ function Prompt-Credentials
         }
 
         # Show the form and wait for the return value
-        if($form.ShowDialog() -ne "OK") {
+        if ($form.ShowDialog() -ne "OK")
+        {
             # Dispose the control
-        $form.Controls[0].Dispose()
+            $form.Controls[0].Dispose()
             Write-Verbose "Login cancelled"
             return $null
         }
@@ -1145,10 +1147,10 @@ function Prompt-Credentials
 
         # Create a body for REST API request
         $body = @{
-            client_id=$client_id
-            grant_type="authorization_code"
-            code=$response["code"]
-            redirect_uri=$auth_redirect
+            client_id    = $client_id
+            grant_type   = "authorization_code"
+            code         = $response["code"]
+            redirect_uri = $auth_redirect
         }
         
         # Dispose the control
@@ -1158,8 +1160,8 @@ function Prompt-Credentials
         Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
 
         # Set the content type and call the Microsoft Online authentication API
-        $contentType="application/x-www-form-urlencoded"
-        $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body
+        $contentType = "application/x-www-form-urlencoded"
+        $jsonResponse = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body
 
         # return 
         $jsonResponse
@@ -1173,7 +1175,7 @@ function Prompt-Credentials
 function Clear-LiveIdSession
 {
 
-<#
+    <#
     .SYNOPSIS
     Clear the SharePoint Online login session.
 
@@ -1188,17 +1190,27 @@ function Clear-LiveIdSession
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Tenant
     )
     Process
     {
         # Set variables
-        $auth_redirect="https://login.microsoftonline.com/login.srf?wa=wsignoutcleanup1.0" # When to close the form
-        $url="https://$tenant.sharepoint.com/_layouts/15/SignOut.aspx"
+        $auth_redirect = "https://login.microsoftonline.com/login.srf?wa=wsignoutcleanup1.0" # When to close the form
+        $url = "https://$tenant.sharepoint.com/_layouts/15/SignOut.aspx"
 
         # Create the form
-        $form=Create-LoginForm -Url $url -auth_redirect $auth_redirect
+        $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
+
+        if(!$form)
+        {
+            return $null
+        }
+
+        if(!$form)
+        {
+            return $null
+        }
 
         if(!$form)
         {
@@ -1357,7 +1369,7 @@ function Create-LoginForm
 }
 
 # Clear the Forms.WebBrowser data
-$source=@"
+$source = @"
 [DllImport("wininet.dll", SetLastError = true)]
 public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int lpdwBufferLength);
 
@@ -1367,9 +1379,9 @@ public static extern bool InternetGetCookieEx(string pchURL, string pchCookieNam
 #Create type from source
 $WebBrowser = Add-Type -memberDefinition $source -passthru -name WebBrowser -ErrorAction SilentlyContinue
 $INTERNET_OPTION_END_BROWSER_SESSION = 42
-$INTERNET_OPTION_SUPPRESS_BEHAVIOR   = 81
-$INTERNET_COOKIE_HTTPONLY            = 0x00002000
-$INTERNET_SUPPRESS_COOKIE_PERSIST    = 3
+$INTERNET_OPTION_SUPPRESS_BEHAVIOR = 81
+$INTERNET_COOKIE_HTTPONLY = 0x00002000
+$INTERNET_SUPPRESS_COOKIE_PERSIST = 3
 function Clear-WebBrowser
 {
     [cmdletbinding()]
@@ -1380,12 +1392,12 @@ function Clear-WebBrowser
         
         # Clear the cache
         [IntPtr] $optionPointer = [IntPtr]::Zero
-        $s =                      [System.Runtime.InteropServices.Marshal]::SizeOf($INTERNET_OPTION_END_BROWSER_SESSION)
-        $optionPointer =          [System.Runtime.InteropServices.Marshal]::AllocCoTaskMem($s)
+        $s = [System.Runtime.InteropServices.Marshal]::SizeOf($INTERNET_OPTION_END_BROWSER_SESSION)
+        $optionPointer = [System.Runtime.InteropServices.Marshal]::AllocCoTaskMem($s)
         [System.Runtime.InteropServices.Marshal]::WriteInt32($optionPointer, ([ref]$INTERNET_SUPPRESS_COOKIE_PERSIST).Value)
-        $status =                 $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_SUPPRESS_BEHAVIOR, $optionPointer, $s)
+        $status = $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_SUPPRESS_BEHAVIOR, $optionPointer, $s)
         Write-Debug "Clearing Web browser cache. Status:$status"
-        [System.Runtime.InteropServices.Marshal]::Release($optionPointer)|out-null
+        [System.Runtime.InteropServices.Marshal]::Release($optionPointer) | out-null
 
         # Clear the current session
         $status = $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_END_BROWSER_SESSION, [IntPtr]::Zero, 0)
@@ -1397,22 +1409,22 @@ function Get-WebBrowserCookies
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Url
     )
     Process
     {
         $dataSize = 1024
         $cookieData = [System.Text.StringBuilder]::new($dataSize)
-        $status = $WebBrowser::InternetGetCookieEx($Url,$null,$cookieData, [ref]$dataSize, $INTERNET_COOKIE_HTTPONLY, [IntPtr]::Zero)
+        $status = $WebBrowser::InternetGetCookieEx($Url, $null, $cookieData, [ref]$dataSize, $INTERNET_COOKIE_HTTPONLY, [IntPtr]::Zero)
         Write-Debug "GETCOOKIEEX Status: $status, length: $($cookieData.Length)"
-        if(!$status)
+        if (!$status)
         {
             $LastError = [ComponentModel.Win32Exception][Runtime.InteropServices.Marshal]::GetLastWin32Error()
             Write-Debug "GETCOOKIEEX ERROR: $LastError"
         }
 
-        if($cookieData.Length -gt 0)
+        if ($cookieData.Length -gt 0)
         {
             $cookies = $cookieData.ToString()
             Write-Debug "Cookies for $url`: $cookies"
@@ -1432,7 +1444,7 @@ function Get-WebBrowserCookies
 # Gets Office 365 instance names (used when getting ip addresses)
 function Get-EndpointInstances
 {
-<#
+    <#
     .SYNOPSIS
     Get Office 365 endpoint instances
 
@@ -1456,7 +1468,7 @@ function Get-EndpointInstances
     Param()
     Process
     {
-        $clientrequestid=(New-Guid).ToString();
+        $clientrequestid = (New-Guid).ToString();
         Invoke-RestMethod -UseBasicParsing -Uri "https://endpoints.office.com/version?clientrequestid=$clientrequestid"
     }
 }
@@ -1464,7 +1476,7 @@ function Get-EndpointInstances
 # Gets Office 365 ip addresses for specific instance
 function Get-EndpointIps
 {
-<#
+    <#
     .SYNOPSIS
     Get Office 365 endpoint ips and urls
 
@@ -1522,13 +1534,13 @@ function Get-EndpointIps
     [cmdletbinding()]
     Param(
         [Parameter()]
-        [ValidateSet('Worldwide','USGovDoD','USGovGCCHigh','China','Germany')]
-        [String]$Instance="Worldwide"
+        [ValidateSet('Worldwide', 'USGovDoD', 'USGovGCCHigh', 'China', 'Germany')]
+        [String]$Instance = "Worldwide"
     )
     Process
     {
-        $clientrequestid=(New-Guid).ToString();
-        Invoke-RestMethod -UseBasicParsing -Uri ("https://endpoints.office.com/endpoints/$Instance"+"?clientrequestid=$clientrequestid")
+        $clientrequestid = (New-Guid).ToString();
+        Invoke-RestMethod -UseBasicParsing -Uri ("https://endpoints.office.com/endpoints/$Instance" + "?clientrequestid=$clientrequestid")
     }
 }
 
@@ -1537,16 +1549,16 @@ function Get-EndpointIps
 function Get-UserNameFromAuthHeader
 {
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Auth
     )
     
     Process
-        {
+    {
         $type = $Auth.Split(" ")[0]
         $data = $Auth.Split(" ")[1]
 
-        if($type -eq "Basic")
+        if ($type -eq "Basic")
         {
             ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($data))).Split(":")[0]
         }
@@ -1575,7 +1587,7 @@ function Create-AuthorizationHeader
     Process
     {
     
-        if($Credentials -ne $null)
+        if ($Credentials -ne $null)
         {
             $userName = $Credentials.UserName
             $password = $Credentials.GetNetworkCredential().Password
@@ -1604,9 +1616,9 @@ function Get-APIKeys
     )
     Process
     {
-        $keys=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/discovery/keys"
+        $keys = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/discovery/keys"
 
-        if($KeyId)
+        if ($KeyId)
         {
             $keys.keys | Where-Object -Property kid -eq $KeyId | Select-Object -ExpandProperty x5c
         }
@@ -1622,7 +1634,7 @@ function Get-APIKeys
 # Jun 14th 2020
 function Get-Cache
 {
-<#
+    <#
     .SYNOPSIS
     Dumps AADInternals credentials cache
 
@@ -1644,27 +1656,27 @@ function Get-Cache
         $cacheKeys = $script:tokens.keys
 
         # Loop through the cache elements
-        foreach($key in $cacheKeys)
+        foreach ($key in $cacheKeys)
         {
-            $accessToken=$script:tokens[$key]
+            $accessToken = $script:tokens[$key]
 
-            if([string]::IsNullOrEmpty($accessToken))
+            if ([string]::IsNullOrEmpty($accessToken))
             {
                 Write-Warning "Access token with key ""$key"" not found!"
-                return
+                continue
             }
 
             $parsedToken = Read-Accesstoken -AccessToken $accessToken
 
             $attributes = [ordered]@{
-                "Name" =            $parsedToken.unique_name
-                "ClientId" =        $parsedToken.appid
-                "Audience" =        $parsedToken.aud
-                "Tenant" =          $parsedToken.tid
-                "IsExpired" =       Is-AccessTokenExpired -AccessToken $accessToken
+                "Name"            = $parsedToken.unique_name
+                "ClientId"        = $parsedToken.appid
+                "Audience"        = $parsedToken.aud
+                "Tenant"          = $parsedToken.tid
+                "IsExpired"       = Is-AccessTokenExpired -AccessToken $accessToken
                 "HasRefreshToken" = $script:refresh_tokens.Contains($key)
-                "AuthMethods" =     $parsedToken.amr
-                "Device" =          $parsedToken.deviceid
+                "AuthMethods"     = $parsedToken.amr
+                "Device"          = $parsedToken.deviceid
             }
 
             New-Object psobject -Property $attributes
@@ -1677,7 +1689,7 @@ function Get-Cache
 # Jun 14th 2020
 function Clear-Cache
 {
-<#
+    <#
     .SYNOPSIS
     Clears AADInternals credentials cache
 
@@ -1691,7 +1703,7 @@ function Clear-Cache
     Param()
     Process
     {
-        $script:tokens =         @{}
+        $script:tokens = @{}
         $script:refresh_tokens = @{}
     }
 }
@@ -1757,7 +1769,7 @@ function Add-AccessTokenToCache
 # Jun 15th 2020
 function Get-TenantDomains
 {
-<#
+    <#
     .SYNOPSIS
     Gets other domains from the tenant of the given domain
 
@@ -1780,13 +1792,13 @@ function Get-TenantDomains
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Domain
     )
     Process
     {
         # Create the body
-        $body=@"
+        $body = @"
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:exm="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:ext="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 	<soap:Header>
@@ -1806,10 +1818,10 @@ function Get-TenantDomains
 </soap:Envelope>
 "@
         # Create the headers
-        $headers=@{
+        $headers = @{
             "Content-Type" = "text/xml; charset=utf-8"
-            "SOAPAction" =   '"http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"'
-            "User-Agent" =   "AutodiscoverClient"
+            "SOAPAction"   = '"http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"'
+            "User-Agent"   = "AutodiscoverClient"
         }
         # Invoke
         $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc" -Body $body -Headers $headers
@@ -1826,9 +1838,9 @@ function Get-AuthRedirectUrl
 
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$ClientId,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Resource
     )
     Process
@@ -1836,55 +1848,55 @@ function Get-AuthRedirectUrl
         # default
         $redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
 
-        if($ClientId -eq "1fec8e78-bce4-4aaf-ab1b-5451cc387264")     # Teams
+        if ($ClientId -eq "1fec8e78-bce4-4aaf-ab1b-5451cc387264")     # Teams
         {
             $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
         }
-        elseif($ClientId -eq "9bc3ab49-b65d-410a-85ad-de819febfddc") # SPO
+        elseif ($ClientId -eq "9bc3ab49-b65d-410a-85ad-de819febfddc") # SPO
         {
             $redirect_uri = "https://oauth.spops.microsoft.com/"
         }
-        elseif($ClientId -eq "c44b4083-3bb0-49c1-b47d-974e53cbdf3c") # Azure admin interface
+        elseif ($ClientId -eq "c44b4083-3bb0-49c1-b47d-974e53cbdf3c") # Azure admin interface
         {
             $redirect_uri = "https://portal.azure.com/signin/index/?feature.prefetchtokens=true&feature.showservicehealthalerts=true&feature.usemsallogin=true"
         }
-        elseif($ClientId -eq "0000000c-0000-0000-c000-000000000000") # Azure AD Account
+        elseif ($ClientId -eq "0000000c-0000-0000-c000-000000000000") # Azure AD Account
         {
             $redirect_uri = "https://account.activedirectory.windowsazure.com/"
         }
-        elseif($ClientId -eq "19db86c3-b2b9-44cc-b339-36da233a3be2") # My sign-ins
+        elseif ($ClientId -eq "19db86c3-b2b9-44cc-b339-36da233a3be2") # My sign-ins
         {
             $redirect_uri = "https://mysignins.microsoft.com"
         }
-        elseif($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") # Azure AD Join
+        elseif ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") # Azure AD Join
         {
             $redirect_uri = "ms-aadj-redir://auth/drs"
         }
-        elseif($ClientId -eq "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa") # Azure Android App
+        elseif ($ClientId -eq "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa") # Azure Android App
         {
             $redirect_uri = "https://azureapp"
         }
-        elseif($ClientId -eq "33be1cef-03fb-444b-8fd3-08ca1b4d803f") # OneDrive Web
+        elseif ($ClientId -eq "33be1cef-03fb-444b-8fd3-08ca1b4d803f") # OneDrive Web
         {
             $redirect_uri = "https://admin.onedrive.com/"
         }
-        elseif($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive native client
+        elseif ($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive native client
         {
             $redirect_uri = "https://login.windows.net/common/oauth2/nativeclient"
         }
-        elseif($ClientId -eq "3d5cffa9-04da-4657-8cab-c7f074657cad") # MS Commerce
+        elseif ($ClientId -eq "3d5cffa9-04da-4657-8cab-c7f074657cad") # MS Commerce
         {
             $redirect_uri = "http://localhost/m365/commerce"
         }
-        elseif($ClientId -eq "4990cffe-04e8-4e8b-808a-1175604b879f") # MS Partner - this flow doesn't work as expected :(
+        elseif ($ClientId -eq "4990cffe-04e8-4e8b-808a-1175604b879f") # MS Partner - this flow doesn't work as expected :(
         {
             $redirect_uri = "https://partner.microsoft.com/aad/authPostGateway"
         }
-        elseif($ClientId -eq "fb78d390-0c51-40cd-8e17-fdbfab77341b") # Microsoft Exchange REST API Based Powershell
+        elseif ($ClientId -eq "fb78d390-0c51-40cd-8e17-fdbfab77341b") # Microsoft Exchange REST API Based Powershell
         {
             $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
         }
-		elseif($ClientId -eq "3b511579-5e00-46e1-a89e-a6f0870e2f5a") 
+        elseif ($ClientId -eq "3b511579-5e00-46e1-a89e-a6f0870e2f5a") 
         {
             $redirect_uri = "https://windows365.microsoft.com/signin-oidc"
         }

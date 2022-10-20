@@ -7,7 +7,7 @@ Add-Type -AssemblyName System.Web.Extensions           -ErrorAction SilentlyCont
 Add-Type -path "$PSScriptRoot\BouncyCastle.Crypto.dll" -ErrorAction SilentlyContinue
 
 # Set supported TLS methods
-[Net.ServicePointManager]::SecurityProtocol = "Tls, Tls11, Tls12, Ssl3"
+[Net.ServicePointManager]::SecurityProtocol = "Tls, Tls11, Tls12"
 
 # Print the welcome message
 $manifest = Import-PowerShellDataFile "$PSScriptRoot\AADInternals.psd1"

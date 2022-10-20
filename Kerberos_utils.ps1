@@ -14,9 +14,9 @@ function Get-Sids{
         if(![String]::IsNullOrEmpty($AccessToken))
         {
             # Get all Azure AD users, filtered users, or just one with userPrincipalName
-            $AADUsers = Get-AADUsers -AccessToken $AccessToken -SearchString $SearchString -UserPrincipalName $UserPrincipalName
+            $AADUsers = Get-MSGraphUsers -AccessToken $AccessToken -SearchString $SearchString -UserPrincipalName $UserPrincipalName
             $output=@()
-            if($AADUsers -ne $null)
+            if($null -ne $AADUsers)
             {
                 foreach($AADUser in $AADUsers)
                 {
@@ -53,7 +53,7 @@ function Get-Sids{
 
                 $AADUser=$ADSearch.FindOne()
 
-                if($AADUser -eq $null)
+                if($null -eq $AADUser)
                 {
                     Write-Error "$UserPrincipalName not found!"
                     return
@@ -659,8 +659,8 @@ function Get-AccessTokenWithKerberosTicket
         {
             if(![String]::IsNullOrEmpty($_.ErrorDetails.Message))
             {
-                $error = $_.ErrorDetails.Message.ToString() | ConvertFrom-Json
-                Write-Error $error.error_description
+                $err = $_.ErrorDetails.Message.ToString() | ConvertFrom-Json
+                Write-Error $err.error_description
                 return
             }
             else

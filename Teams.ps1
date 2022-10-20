@@ -589,12 +589,7 @@ function Get-TeamsMessages
             {
                 Write-Verbose "$(($_.ErrorDetails.Message | ConvertFrom-Json).message)"
             }
-            
-            
-
-
         }
-  
     }
 }
 

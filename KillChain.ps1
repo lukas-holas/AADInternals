@@ -610,7 +610,7 @@ function Invoke-UserEnumerationAsGuest
             Write-Verbose "Getting user information for user $UserName"
 
             # Get the user information
-            $user = Get-MSGraphUser -UserPrincipalName $UserName -AccessToken $AccessToken 
+            $user = Get-MSGraphUser -UserId $UserName -AccessToken $AccessToken 
 
             if([string]::IsNullOrEmpty($user))
             {
@@ -644,7 +644,7 @@ function Invoke-UserEnumerationAsGuest
                     Write-Verbose "Getting subordinates of $user"
 
                     # Get user's subordinates
-                    $userSubordinates = Get-MSGraphUserDirectReports -AccessToken $AccessToken -UserPrincipalName $user
+                    $userSubordinates = Get-MSGraphUserDirectReports -AccessToken $AccessToken -UserId $user
 
                     # Loop trough the users
                     foreach($subordinate in $userSubordinates)
@@ -657,7 +657,7 @@ function Invoke-UserEnumerationAsGuest
             # Get user's manager
             if($Manager)
             {
-                try{$userManager= Get-MSGraphUserManager -AccessToken $AccessToken -UserPrincipalName $UserName}catch{}
+                try{$userManager= Get-MSGraphUserManager -AccessToken $AccessToken -UserId $UserName}catch{}
                 if($userManager)
                 {
                     $ht_users[$userManager.id] = $userManager
@@ -673,7 +673,7 @@ function Invoke-UserEnumerationAsGuest
                     Write-Verbose "Getting groups of $groupUser"
 
                     # Get user's groups
-                    $userGroups = Get-MSGraphUserMemberOf -AccessToken $AccessToken -UserPrincipalName $groupUser
+                    $userGroups = Get-MSGraphUserMemberOf -AccessToken $AccessToken -UserId $groupUser
 
                     # Loop trough the groups
                     foreach($group in $userGroups)
@@ -739,7 +739,7 @@ function Invoke-UserEnumerationAsGuest
                     Write-Verbose "Getting roles of $roleUser"
 
                     # Get user's roles
-                    $userRoles = Get-MSGraphUserMemberOf -AccessToken $AccessToken -UserPrincipalName $roleUser
+                    $userRoles = Get-MSGraphUserMemberOf -AccessToken $AccessToken -UserId $roleUser
 
                     # Loop trough the groups
                     foreach($userRole in $userRoles)

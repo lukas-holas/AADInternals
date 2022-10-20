@@ -55,8 +55,8 @@ function IsErrorResponse
     )
     Process
     {
-        $error=Select-Xml -Xml $xml_doc -XPath "//*[local-name()='ErrorDescription']"
-        if([string]::IsNullOrEmpty($error))
+        $err=Select-Xml -Xml $xml_doc -XPath "//*[local-name()='ErrorDescription']"
+        if([string]::IsNullOrEmpty($err))
         {
             # All good
             return $False
@@ -64,7 +64,7 @@ function IsErrorResponse
         else
         {
             # Got error, so throw an exception
-            throw $error.Node.'#text'
+            throw $err.Node.'#text'
         }
         
     }

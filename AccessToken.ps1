@@ -6,47 +6,47 @@ function Get-AccessTokenFromCache
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$ClientID,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Resource,
         [switch]$IncludeRefreshToken,
-        [boolean]$Force=$false
+        [boolean]$Force = $false
     )
     Process
     {
         # Check if we got the AccessToken as parameter
-        if([string]::IsNullOrEmpty($AccessToken))
+        if ([string]::IsNullOrEmpty($AccessToken))
         {
             # Check if cache entry is empty
-            if([string]::IsNullOrEmpty($Script:tokens["$ClientId-$Resource"]))
+            if ([string]::IsNullOrEmpty($Script:tokens["$ClientId-$Resource"]))
             {
                 # Empty, so throw the exception
-                Throw "No saved tokens found. Please call Get-AADIntAccessTokenFor<service> -SaveToCache"
+                Throw "No saved tokens found. Please call Get-AADIntAccessTokenFor<service> -SaveToCache or Get-AADIntAccessTokenFromCacheRefreshToken if you have a token in the cache."
             }
             else
             {
-                $retVal=$Script:tokens["$ClientId-$Resource"]
+                $access_token = $Script:tokens["$ClientId-$Resource"]
             }
         }
         else
         {
             # Check that the audience of the access token is correct
-            $audience=(Read-Accesstoken -AccessToken $AccessToken).aud
+            $audience = (Read-Accesstoken -AccessToken $AccessToken).aud
 
             # Strip the trailing slashes
-            if($audience.EndsWith("/"))
+            if ($audience.EndsWith("/"))
             {
-                $audience = $audience.Substring(0,$audience.Length-1)
+                $audience = $audience.Substring(0, $audience.Length - 1)
             }
-            if($Resource.EndsWith("/"))
+            if ($Resource.EndsWith("/"))
             {
-                $Resource = $Resource.Substring(0,$Resource.Length-1)
+                $Resource = $Resource.Substring(0, $Resource.Length - 1)
             }
 
-            if(($audience -ne $Resource) -and ($Force -eq $False))
+            if (($audience -ne $Resource) -and ($Force -eq $False))
             {
                 # Wrong audience
                 Write-Verbose "ACCESS TOKEN HAS WRONG AUDIENCE: $audience. Exptected: $resource."
@@ -55,26 +55,35 @@ function Get-AccessTokenFromCache
             else
             {
                 # Just return the passed access token
-                $retVal=$AccessToken
+                $access_token = $AccessToken
             }
         }
 
         # Check the expiration
-        if(Is-AccessTokenExpired($retVal))
+        if (Is-AccessTokenExpired($access_token))
         {
             Write-Verbose "ACCESS TOKEN HAS EXPRIRED. Trying to get a new one with RefreshToken."
-            $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
+            $access_token = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
         }
 
         # Return
-        return $retVal
+        if ($IncludeRefreshToken)
+        {
+            # Include refreshtoken
+            $refresh_token = $Script:refresh_tokens["$ClientId-$Resource"]
+            return @($access_token, $refresh_token)
+        }
+        else
+        {
+            return $access_token
+        }
     }
 }
 
 # Gets the access token for AAD Graph API
 function Get-AccessTokenForAADGraph
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for AAD Graph
 
@@ -112,23 +121,23 @@ function Get-AccessTokenForAADGraph
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant,
         [switch]$SaveToCache,
-        [ValidateSet("https://graph.windows.net", "urn:ms-drs:enterpriseregistration.windows.net","urn:ms-drs:enterpriseregistration.microsoftonline.us")]
-        [String]$Resource="https://graph.windows.net"
+        [ValidateSet("https://graph.windows.net", "urn:ms-drs:enterpriseregistration.windows.net", "urn:ms-drs:enterpriseregistration.microsoftonline.us")]
+        [String]$Resource = "https://graph.windows.net"
     )
     Process
     {
@@ -139,7 +148,7 @@ function Get-AccessTokenForAADGraph
 # Gets the access token for MS Graph API
 function Get-AccessTokenForMSGraph
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Microsoft Graph
 
@@ -171,17 +180,17 @@ function Get-AccessTokenForMSGraph
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
@@ -196,7 +205,7 @@ function Get-AccessTokenForMSGraph
 # Gets the access token for enabling or disabling PTA
 function Get-AccessTokenForPTA
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for PTA
 
@@ -230,17 +239,17 @@ function Get-AccessTokenForPTA
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
@@ -253,7 +262,7 @@ function Get-AccessTokenForPTA
 # Gets the access token for Office Apps
 function Get-AccessTokenForOfficeApps
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Office Apps
 
@@ -287,17 +296,17 @@ function Get-AccessTokenForOfficeApps
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
@@ -310,7 +319,7 @@ function Get-AccessTokenForOfficeApps
 # Gets the access token for Exchange Online
 function Get-AccessTokenForEXO
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Exchange Online
 
@@ -344,22 +353,22 @@ function Get-AccessTokenForEXO
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [ValidateSet("https://graph.microsoft.com","https://outlook.office365.com","https://outlook.office.com","https://substrate.office.com")]
-        [String]$Resource="https://outlook.office365.com"
+        [Parameter(Mandatory = $False)]
+        [ValidateSet("https://graph.microsoft.com", "https://outlook.office365.com", "https://outlook.office.com", "https://substrate.office.com")]
+        [String]$Resource = "https://outlook.office365.com"
     )
     Process
     {
@@ -371,7 +380,7 @@ function Get-AccessTokenForEXO
 # Gets the access token for Exchange Online remote PowerShell
 function Get-AccessTokenForEXOPS
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Exchange Online remote PowerShell
 
@@ -408,25 +417,25 @@ function Get-AccessTokenForEXOPS
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
 
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$PfxFileName,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$PfxPassword
     )
     Process
@@ -440,7 +449,7 @@ function Get-AccessTokenForEXOPS
 # Jul 8th 2019
 function Get-AccessTokenForSARA
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for SARA
 
@@ -462,17 +471,17 @@ function Get-AccessTokenForSARA
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
@@ -487,7 +496,7 @@ function Get-AccessTokenForSARA
 # Nov 26th 2019
 function Get-AccessTokenForOneDrive
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for OneDrive
 
@@ -521,19 +530,19 @@ function Get-AccessTokenForOneDrive
 #>
     [cmdletbinding()]
     Param(
-    [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Tenant,
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
@@ -547,7 +556,7 @@ function Get-AccessTokenForOneDrive
 # Nov 26th 2019
 function Get-AccessTokenForOfficeApps
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Office Apps
 
@@ -584,17 +593,17 @@ function Get-AccessTokenForOfficeApps
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
@@ -608,7 +617,7 @@ function Get-AccessTokenForOfficeApps
 # May 29th 2020
 function Get-AccessTokenForAzureCoreManagement
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Azure Core Management
 
@@ -645,20 +654,20 @@ function Get-AccessTokenForAzureCoreManagement
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant
     )
     Process
@@ -671,7 +680,7 @@ function Get-AccessTokenForAzureCoreManagement
 # Jun 10th 2020
 function Get-AccessTokenForSPO
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for SharePoint Online
 
@@ -714,26 +723,26 @@ function Get-AccessTokenForSPO
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Tenant,
         [switch]$SaveToCache,
         [switch]$Admin
     )
     Process
     {
-        if($Admin)
+        if ($Admin)
         {
             $prefix = "-admin"
         }
@@ -745,7 +754,7 @@ function Get-AccessTokenForSPO
 # Jul 1st 2020
 function Get-AccessTokenForMySignins
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for My Signins
 
@@ -775,7 +784,7 @@ function Get-AccessTokenForMySignins
 # Aug 26th 2020
 function Get-AccessTokenForAADJoin
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Azure AD Join
 
@@ -818,29 +827,29 @@ function Get-AccessTokenForAADJoin
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $False)]
         [Switch]$Device,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
-        [Parameter(ParameterSetName='BPRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'BPRT', Mandatory = $True)]
         [string]$BPRT,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant,
         [switch]$SaveToCache
     )
     Process
     {
-        if($Device)
+        if ($Device)
         {
             Get-AccessTokenWithDeviceSAML -SAML $SAMLToken -SaveToCache $SaveToCache
         }
@@ -855,7 +864,7 @@ function Get-AccessTokenForAADJoin
 # Aug 26th 2020
 function Get-AccessTokenForIntuneMDM
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Intune MDM
 
@@ -913,36 +922,36 @@ function Get-AccessTokenForIntuneMDM
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [switch]$ForceMFA,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
-        [Parameter(ParameterSetName='BPRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'BPRT', Mandatory = $True)]
         [string]$BPRT,
 
         [switch]$SaveToCache,
 
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$PfxFileName,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$PfxPassword,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$TransportKeyFileName,
 
-        [Parameter(Mandatory=$False)]
-        [string]$Resource="https://enrollment.manage.microsoft.com/"
+        [Parameter(Mandatory = $False)]
+        [string]$Resource = "https://enrollment.manage.microsoft.com/"
     )
     Process
     {
@@ -954,7 +963,7 @@ function Get-AccessTokenForIntuneMDM
 # Sep 9th 2020
 function Get-AccessTokenForCloudShell
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Azure Cloud Shell
 
@@ -991,20 +1000,20 @@ function Get-AccessTokenForCloudShell
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant
     )
     Process
@@ -1017,7 +1026,7 @@ function Get-AccessTokenForCloudShell
 # Oct 3rd 2020
 function Get-AccessTokenForTeams
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Teams
 
@@ -1053,20 +1062,20 @@ function Get-AccessTokenForTeams
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [ValidateSet("https://api.spaces.skype.com", "https://outlook.com", "https://*.microsoftstream.com", "https://graph.microsoft.com")]
@@ -1083,7 +1092,7 @@ function Get-AccessTokenForTeams
 # Nov 11th 2020
 function Get-AccessTokenForAADIAMAPI
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for Azure AD IAM API
 
@@ -1119,20 +1128,20 @@ function Get-AccessTokenForAADIAMAPI
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant
     )
     Process
@@ -1143,7 +1152,7 @@ function Get-AccessTokenForAADIAMAPI
         # Get the actual token
         $AccessToken = Get-AccessTokenWithRefreshToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-Accesstoken $AccessTokens[0]).tid
 
-        if(!$SaveToCache)
+        if (!$SaveToCache)
         {
             return $AccessToken
         }
@@ -1154,7 +1163,7 @@ function Get-AccessTokenForAADIAMAPI
 # Aug 27th 2021
 function Get-AccessTokenForMSCommerce
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for MS Commerce
 
@@ -1187,20 +1196,20 @@ function Get-AccessTokenForMSCommerce
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant
     )
     Process
@@ -1213,7 +1222,7 @@ function Get-AccessTokenForMSCommerce
 # Sep 22nd 2021
 function Get-AccessTokenForMSPartner
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for MS Partner
 
@@ -1246,20 +1255,20 @@ function Get-AccessTokenForMSPartner
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant
     )
     Process
@@ -1273,7 +1282,7 @@ function Get-AccessTokenForMSPartner
 # Sep 22nd 2021
 function Get-AccessTokenForAdmin
 {
-<#
+    <#
     .SYNOPSIS
     Gets OAuth Access Token for admin.microsoft.com
 
@@ -1306,20 +1315,20 @@ function Get-AccessTokenForAdmin
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'Credentials', Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $True)]
         [String]$PRTToken,
-        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'SAML', Mandatory = $True)]
         [String]$SAMLToken,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$KerberosTicket,
-        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'Kerberos', Mandatory = $True)]
         [String]$Domain,
-        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant
     )
     Process
@@ -1412,45 +1421,45 @@ function Get-AccessToken
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='PRT',Mandatory=$False)]
+        [Parameter(ParameterSetName = 'PRT', Mandatory = $False)]
         [String]$PRTToken,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$SAMLToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Resource,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$ClientId,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$KerberosTicket,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Domain,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [bool]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [bool]$IncludeRefreshToken=$false,
-        [Parameter(Mandatory=$False)]
-        [bool]$ForceMFA=$false,
-        [Parameter(Mandatory=$False)]
-        [bool]$UseDeviceCode=$false,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
+        [bool]$IncludeRefreshToken = $false,
+        [Parameter(Mandatory = $False)]
+        [bool]$ForceMFA = $false,
+        [Parameter(Mandatory = $False)]
+        [bool]$UseDeviceCode = $false,
+        [Parameter(Mandatory = $False)]
         [string]$BPRT,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$PfxFileName,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$PfxPassword,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [string]$TransportKeyFileName
     )
     Begin
     {
         # List of clients requiring the same client id
-        $requireClientId=@(
+        $requireClientId = @(
             "cb1056e2-e479-49de-ae31-7812af012ed8" # Pass-through authentication
             "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" # Azure Admin web ui
             "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams
@@ -1473,47 +1482,50 @@ function Get-AccessToken
     Process
     {
         
-        if(![String]::IsNullOrEmpty($KerberosTicket)) # Check if we got the kerberos token
+        if (![String]::IsNullOrEmpty($KerberosTicket))
         {
+            # Check if we got the kerberos token
             # Get token using the kerberos token
             $OAuthInfo = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId
             $access_token = $OAuthInfo.access_token
         }
-        elseif(![String]::IsNullOrEmpty($PRTToken)) # Check if we got a PRT token
+        elseif (![String]::IsNullOrEmpty($PRTToken))
         {
+            # Check if we got a PRT token
             # Get token using the PRT token
             $OAuthInfo = Get-AccessTokenWithPRT -Cookie $PRTToken -Resource $Resource -ClientId $ClientId
             $access_token = $OAuthInfo.access_token
         }
-        elseif($UseDeviceCode) # Check if we want to use device code flow
+        elseif ($UseDeviceCode)
         {
+            # Check if we want to use device code flow
             # Get token using device code
             $OAuthInfo = Get-AccessTokenUsingDeviceCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant
             $access_token = $OAuthInfo.access_token
         }
-        elseif(![String]::IsNullOrEmpty($BPRT)) # Check if we got a BPRT
+        elseif (![String]::IsNullOrEmpty($BPRT))
         {
+            # Check if we got a BPRT
             # Get token using BPRT
             $OAuthInfo = @{
                 "refresh_token" = $BPRT
                 "access_token"  = Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT
-                }
+            }
             $access_token = $OAuthInfo.access_token
         }
         else
         {
             
             # Check if we got credentials
-            if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
+            if ([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
                 # No credentials given, so prompt for credentials
-                if(  $ClientId -eq "d3590ed6-52b3-4102-aeff-aad2292ab01c" <# Office #> -or 
-                     $ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716" <# EXO #>    -or 
+                if (  $ClientId -eq "d3590ed6-52b3-4102-aeff-aad2292ab01c" <# Office #> -or 
+                    $ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716" <# EXO #> -or 
                     ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -eq "https://enrollment.manage.microsoft.com/") <# MDM #>
-                )  
+                )
                 {
                     $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA
-                    
                 }
                 else
                 {
@@ -1525,18 +1537,17 @@ function Get-AccessToken
                 {
                     return $null
                 }
-                
             }
             else
             {
                 # Get OAuth info for user
-                if(![string]::IsNullOrEmpty($SAMLToken))
+                if (![string]::IsNullOrEmpty($SAMLToken))
                 {
                     $OAuthInfo = Get-OAuthInfoUsingSAML -SAMLToken $SAMLToken -ClientId $ClientId -Resource "https://graph.windows.net"
                 }
                 else
                 {
-                    if($requireClientId -contains $ClientId)
+                    if ($requireClientId -contains $ClientId)
                     {
                         # Requires same clientId
                         $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -Resource "https://graph.windows.net"
@@ -1549,7 +1560,7 @@ function Get-AccessToken
                 }
             }
 
-            if([String]::IsNullOrEmpty($OAuthInfo))
+            if ([String]::IsNullOrEmpty($OAuthInfo))
             {
                 throw "Could not get OAuthInfo!"
             }
@@ -1557,15 +1568,15 @@ function Get-AccessToken
             # We need to get access token using the refresh token
 
             # Save the refresh token and other variables
-            $RefreshToken= $OAuthInfo.refresh_token
-            $ParsedToken=  Read-Accesstoken($OAuthInfo.access_token)
-            $tenant_id =   $ParsedToken.tid
+            $RefreshToken = $OAuthInfo.refresh_token
+            $ParsedToken = Read-Accesstoken($OAuthInfo.access_token)
+            $tenant_id = $ParsedToken.tid
 
             # Save the tokens to cache
-            if($SaveToCache)
+            if ($SaveToCache)
             {
                 Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-                $Script:tokens["$ClientId-https://graph.windows.net"] =         $OAuthInfo.access_token
+                $Script:tokens["$ClientId-https://graph.windows.net"] = $OAuthInfo.access_token
                 $Script:refresh_tokens["$ClientId-https://graph.windows.net"] = $OAuthInfo.refresh_token
             }
 
@@ -1576,8 +1587,14 @@ function Get-AccessToken
 
         $refresh_token = $OAuthInfo.refresh_token
 
+        Write-Host "token_type : $($OAuthInfo.token_type)"
+        Write-Host "scope : $($OAuthInfo.scope)"
+        Write-Host "expires_in : $($OAuthInfo.expires_in)"
+        Write-Host "expires_on : $($OAuthInfo.expires_on)"
+        Write-Host "resource : $($OAuthInfo.resource)"
+
         # Check whether we want to get the deviceid and (possibly) mfa in mra claim
-        if(($Certificate -ne $null -and [string]::IsNullOrEmpty($PfxFileName)) -or ($Certificate -eq $null -and [string]::IsNullOrEmpty($PfxFileName) -eq $false))
+        if (($Certificate -ne $null -and [string]::IsNullOrEmpty($PfxFileName)) -or ($Certificate -eq $null -and [string]::IsNullOrEmpty($PfxFileName) -eq $false))
         {
             try
             {
@@ -1589,9 +1606,9 @@ function Get-AccessToken
                 Write-Warning "Could not get tokens with deviceid claim: $($_.Exception.Message)"
             }
 
-            if($deviceTokens.access_token)
+            if ($deviceTokens.access_token)
             {
-                $access_token =  $deviceTokens.access_token
+                $access_token = $deviceTokens.access_token
                 $refresh_token = $deviceTokens.refresh_token
 
                 $claims = Read-Accesstoken $access_token
@@ -1599,36 +1616,37 @@ function Get-AccessToken
             }
         }
 
-        if($SaveToCache -and $OAuthInfo -ne $null -and $access_token -ne $null)
+        if ($SaveToCache -and $null -ne $OAuthInfo -and $null -ne $access_token)
         {
-            $script:tokens["$ClientId-$Resource"] =          $access_token
-            $script:refresh_tokens["$ClientId-$Resource"] =  $refresh_token
+            $script:tokens["$ClientId-$Resource"] = $access_token
+            $script:refresh_tokens["$ClientId-$Resource"] = $refresh_token
         }
 
         # Return
-        if([string]::IsNullOrEmpty($access_token))
+        if ([string]::IsNullOrEmpty($access_token))
         {
             Throw "Could not get Access Token!"
         }
 
         # Don't print out token if saved to cache!
-        if($SaveToCache)
+        if ($SaveToCache)
         {
             $pat = Read-Accesstoken -AccessToken $access_token
-            $attributes=[ordered]@{
-                "Tenant" =   $pat.tid
-                "User" =     $pat.unique_name
+            $attributes = [ordered]@{
+                "Tenant"   = $pat.tid
+                "User"     = $pat.unique_name
                 "Resource" = $Resource
-                "Client" =   $ClientID
+                "Client"   = $ClientID
             }
             Write-Host "AccessToken saved to cache."
             return New-Object psobject -Property $attributes
         }
         else
         {
-            if($IncludeRefreshToken) # Include refreshtoken
+            if ($IncludeRefreshToken)
             {
-                return @($access_token,$OAuthInfo.refresh_token)
+                # Include refreshtoken
+                return @($access_token, $OAuthInfo.refresh_token)
             }
             else
             {
@@ -1657,30 +1675,31 @@ function Get-AccessTokenWithRefreshToken
     [cmdletbinding()]
     Param(
         [String]$Resource,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$ClientId,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$TenantId,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$RefreshToken,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [bool]$SaveToCache = $false,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [bool]$IncludeRefreshToken = $false
     )
     Process
     {
         # Set the body for API call
         $body = @{
-            "resource"=      $Resource
-            "client_id"=     $ClientId
-            "grant_type"=    "refresh_token"
-            "refresh_token"= $RefreshToken
-            "scope"=         "openid"
+            "resource"      = $Resource
+            "client_id"     = $ClientId
+            "grant_type"    = "refresh_token"
+            "refresh_token" = $RefreshToken
+            "scope"         = "openid"
         }
 
-        if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
+        if ($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763")
         {
+            # OneDrive Sync Engine
             $url = "https://login.windows.net/common/oauth2/token"
         }
         else
@@ -1692,22 +1711,28 @@ function Get-AccessTokenWithRefreshToken
         Write-Debug "ACCESS TOKEN BODY: $($body | Out-String)"
         
         # Set the content type and call the API
-        $contentType="application/x-www-form-urlencoded"
-        $response=Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body
+        $contentType = "application/x-www-form-urlencoded"
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body
 
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"
 
+        Write-Host "token_type : $($response.token_type)"
+        Write-Host "scope : $($response.scope)"
+        Write-Host "expires_in : $($response.expires_in)"
+        Write-Host "expires_on : $($response.expires_on)"
+        Write-Host "resource : $($response.resource)"
+
         # Save the tokens to cache
-        if($SaveToCache)
+        if ($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
+            $Script:tokens["$ClientId-$Resource"] = $response.access_token
             $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
         }
 
         # Return
-        if($IncludeRefreshToken)
+        if ($IncludeRefreshToken)
         {
             return @($response.access_token, $response.refresh_token)
         }
@@ -1725,25 +1750,25 @@ function Get-AccessTokenUsingDeviceCode
     [cmdletbinding()]
     Param(
         
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$ClientId,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$Tenant,
-        [Parameter(Mandatory=$False)]
-        [String]$Resource="https://graph.windows.net"
+        [Parameter(Mandatory = $False)]
+        [String]$Resource = "https://graph.windows.net"
     )
     Process
     {
         # Check the tenant
-        if([string]::IsNullOrEmpty($Tenant))
+        if ([string]::IsNullOrEmpty($Tenant))
         {
-            $Tenant="Common"
+            $Tenant = "Common"
         }
 
         # Create a body for the first request
-        $body=@{
+        $body = @{
             "client_id" = $ClientId
-            "resource" =  $Resource
+            "resource"  = $Resource
         }
 
         # Invoke the request to get device and user codes
@@ -1753,24 +1778,24 @@ function Get-AccessTokenUsingDeviceCode
 
         $continue = $true
         $interval = $authResponse.interval
-        $expires =  $authResponse.expires_in
+        $expires = $authResponse.expires_in
 
         # Create body for authentication subsequent requests
-        $body=@{
-            "client_id" =  $ClientId
+        $body = @{
+            "client_id"  = $ClientId
             "grant_type" = "urn:ietf:params:oauth:grant-type:device_code"
-            "code" =       $authResponse.device_code
-            "resource" =   $Resource
+            "code"       = $authResponse.device_code
+            "resource"   = $Resource
         }
 
 
         # Loop while pending or until timeout exceeded
-        while($continue)
+        while ($continue)
         {
             Start-Sleep -Seconds $interval
             $total += $interval
 
-            if($total -gt $expires)
+            if ($total -gt $expires)
             {
                 Write-Error "Timeout occurred"
                 return
@@ -1784,12 +1809,12 @@ function Get-AccessTokenUsingDeviceCode
             catch
             {
                 # This normal flow, always returns 40x unless successful
-                $details=$_.ErrorDetails.Message | ConvertFrom-Json
+                $details = $_.ErrorDetails.Message | ConvertFrom-Json
                 $continue = $details.error -eq "authorization_pending"
                 Write-Verbose $details.error
                 Write-Host "." -NoNewline
 
-                if(!$continue)
+                if (!$continue)
                 {
                     # Not authorization_pending so this is a real error :(
                     Write-Error $details.error_description
@@ -1798,7 +1823,7 @@ function Get-AccessTokenUsingDeviceCode
             }
 
             # If we got response, all okay!
-            if($response)
+            if ($response)
             {
                 Write-Host "" 
                 return $response
@@ -1815,19 +1840,19 @@ function Get-AccessTokenWithAuthorizationCode
     [cmdletbinding()]
     Param(
         [String]$Resource,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$ClientId,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$TenantId,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$AuthorizationCode,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [bool]$SaveToCache = $false,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [bool]$IncludeRefreshToken = $false,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$RedirectUri,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$CodeVerifier
     )
     Process
@@ -1837,26 +1862,27 @@ function Get-AccessTokenWithAuthorizationCode
 
         # Set the body for API call
         $body = @{
-            "resource"=      $Resource
-            "client_id"=     $ClientId
-            "grant_type"=    "authorization_code"
-            "code"=          $AuthorizationCode
-            "scope"=         "openid profile email"
+            "resource"   = $Resource
+            "client_id"  = $ClientId
+            "grant_type" = "authorization_code"
+            "code"       = $AuthorizationCode
+            "scope"      = "openid profile email"
         }
-        if(![string]::IsNullOrEmpty($RedirectUri))
+        if (![string]::IsNullOrEmpty($RedirectUri))
         {
             $body["redirect_uri"] = $RedirectUri
             $headers["Origin"] = $RedirectUri
         }
 
-        if(![string]::IsNullOrEmpty($CodeVerifier))
+        if (![string]::IsNullOrEmpty($CodeVerifier))
         {
             $body["code_verifier"] = $CodeVerifier
             $body["code_challenge_method"] = "S256"
         }
 
-        if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
+        if ($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763")
         {
+            # OneDrive Sync Engine
             $url = "https://login.windows.net/common/oauth2/token"
         }
         else
@@ -1869,16 +1895,16 @@ function Get-AccessTokenWithAuthorizationCode
         
         # Set the content type and call the API
         $contentType = "application/x-www-form-urlencoded"
-        $response =    Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body -Headers $headers
 
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"
 
         # Save the tokens to cache
-        if($SaveToCache)
+        if ($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
+            $Script:tokens["$ClientId-$Resource"] = $response.access_token
             $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
         }
 
@@ -1893,9 +1919,9 @@ function Get-AccessTokenWithDeviceSAML
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$SAML,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [bool]$SaveToCache
     )
     Process
@@ -1909,11 +1935,11 @@ function Get-AccessTokenWithDeviceSAML
 
         # Set the body for API call
         $body = @{
-            "resource"=      $Resource
-            "client_id"=     $ClientId
-            "grant_type"=    "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
-            "assertion"=     Convert-TextToB64 -Text $SAML
-            "scope"=         "openid"
+            "resource"   = $Resource
+            "client_id"  = $ClientId
+            "grant_type" = "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
+            "assertion"  = Convert-TextToB64 -Text $SAML
+            "scope"      = "openid"
         }
         
         # Debug
@@ -1921,16 +1947,16 @@ function Get-AccessTokenWithDeviceSAML
         
         # Set the content type and call the API
         $contentType = "application/x-www-form-urlencoded"
-        $response =    Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
 
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"
 
         # Save the tokens to cache
-        if($SaveToCache)
+        if ($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
+            $Script:tokens["$ClientId-$Resource"] = $response.access_token
             $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
         }
         else
@@ -1948,7 +1974,7 @@ function Get-AccessTokenWithDeviceSAML
 # Aug 10th 2018
 function Get-IdentityTokenByLiveId
 {
-<#
+    <#
     .SYNOPSIS
     Gets identity_token for SharePoint Online for External user
 
@@ -1963,29 +1989,30 @@ function Get-IdentityTokenByLiveId
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Tenant
     )
     Process
     {
         # Set variables
-        $auth_redirect="https://login.microsoftonline.com/common/federation/oauth2" # When to close the form
-        $url="https://$Tenant.sharepoint.com"
+        $auth_redirect = "https://login.microsoftonline.com/common/federation/oauth2" # When to close the form
+        $url = "https://$Tenant.sharepoint.com"
 
         # Create the form
-        $form=Create-LoginForm -Url $url -auth_redirect $auth_redirect
+        $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
 
         # Show the form and wait for the return value
-        if($form.ShowDialog() -ne "OK") {
+        if ($form.ShowDialog() -ne "OK")
+        {
             Write-Verbose "Login cancelled"
             return $null
         }
 
-        $web=$form.Controls[0]
+        $web = $form.Controls[0]
 
-        $code=$web.Document.All["code"].GetAttribute("value")
-        $id_token=$web.Document.All["id_token"].GetAttribute("value")
-        $session_state=$web.Document.All["session_state"].GetAttribute("value")
+        $code = $web.Document.All["code"].GetAttribute("value")
+        $id_token = $web.Document.All["id_token"].GetAttribute("value")
+        $session_state = $web.Document.All["session_state"].GetAttribute("value")
 
         return Read-Accesstoken($id_token)
     }
@@ -1997,9 +2024,9 @@ function Get-AccessTokenUsingAADGraph
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$Resource,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$ClientId,
         [switch]$SaveToCache
     )
@@ -2012,9 +2039,9 @@ function Get-AccessTokenUsingAADGraph
         $tenant = (Read-Accesstoken -AccessToken $AccessToken).tid
                 
         # Get the refreshtoken
-        $refresh_token=$script:refresh_tokens["1b730954-1685-4b74-9bfd-dac224a7b894-https://graph.windows.net"]
+        $refresh_token = $script:refresh_tokens["1b730954-1685-4b74-9bfd-dac224a7b894-https://graph.windows.net"]
 
-        if([string]::IsNullOrEmpty($refresh_token))
+        if ([string]::IsNullOrEmpty($refresh_token))
         {
             Throw "No refreshtoken found! Use Get-AADIntAccessTokenForAADGraph with -SaveToCache switch."
         }
@@ -2027,6 +2054,72 @@ function Get-AccessTokenUsingAADGraph
     }
 }
 
+# Tries to generate access token using cached refresh token
+# Jun 1st 2022
+function Get-AccessTokenFromCacheRefreshToken
+{
+    <#
+    .SYNOPSIS
+    Gets OAuth Access Token from a refresh token present in the cache.
+
+    .DESCRIPTION
+    Gets OAuth Access Token from a refresh token present in the cache.
+    We can also get a new token for an existing entry in the cache.
+    
+    .Example
+    PS C:\>Get-AADIntSkypeToken -SaveToCache -UseDeviceCode
+    PS C:\>Get-AADIntAccessTokenFromCacheRefreshToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -SaveToCache  # if a skype token is already present in the cache, update it
+    PS C:\>Get-AADIntAccessTokenFromCache -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"  # not the same token as before 
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache -UseDeviceCode  # we need a first token with some privilege, otherwise we'll get 403 (Forbidden) with our ClientId
+    PS C:\>Get-AADIntAccessTokenFromCacheRefreshToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -NewResource "https://api.spaces.skype.com" -SaveToCache
+    PS C:\>Get-AADIntAccessTokenFromCache -Resource "https://api.spaces.skype.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" 
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $True)]
+        [String]$Resource,
+        [Parameter(Mandatory = $True)]
+        [String]$ClientId,
+        [Parameter(Mandatory = $False)]
+        [String]$NewResource,
+        [switch]$SaveToCache
+    )
+    Process
+    {
+        # First get the access token and refresh token from the cache
+        $access_token = $Script:tokens["$ClientId-$Resource"]
+        $refresh_token = $Script:refresh_tokens["$ClientId-$Resource"]
+
+        if ([string]::IsNullOrEmpty($access_token))
+        {
+            Throw "No access token found in the cache for the given Resource and ClientId!"
+        }
+
+        if ([string]::IsNullOrEmpty($refresh_token))
+        {
+            Throw "No refresh token found in the cache for the given Resource and ClientId!"
+        }
+
+        if ([string]::IsNullOrEmpty($NewResource))
+        {
+            $NewResource = $Resource
+        }
+
+        # Get the token
+        $AccessToken = Get-AccessTokenWithRefreshToken -Resource $NewResource -ClientId $ClientId -SaveToCache $SaveToCache -RefreshToken $refresh_token -TenantId (Read-Accesstoken $access_token).tid
+        if ([string]::IsNullOrEmpty($AccessToken))
+        {
+            Throw "No access token returned! There may be an empty entry in the cache."
+        }
+
+        if (!$SaveToCache)
+        {
+            return $AccessToken
+        }
+    }
+}
 # Apr 22th 2022
 function Unprotect-EstsAuthPersistentCookie
 {

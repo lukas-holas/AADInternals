@@ -1,37 +1,35 @@
 ﻿# This script contains utility functions for MSGraph API at https://graph.microsoft.com
 
-
-
 # Calls the provisioning SOAP API
 function Call-MSGraphAPI
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [String]$API,
-        [Parameter(Mandatory=$False)]
-        [String]$ApiVersion="beta",
-        [Parameter(Mandatory=$False)]
-        [String]$Method="GET",
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
+        [String]$ApiVersion = "beta",
+        [Parameter(Mandatory = $False)]
+        [String]$Method = "GET",
+        [Parameter(Mandatory = $False)]
         $Body,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         $Headers,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory = $False)]
         [String]$QueryString,
-        [Parameter(Mandatory=$False)]
-        [int]$MaxResults=1000
+        [Parameter(Mandatory = $False)]
+        [int]$MaxResults = 1000
     )
     Process
     {
         # Set the required variables
         $TenantID = (Read-Accesstoken $AccessToken).tid
 
-        if($Headers -eq $null)
+        if ($null -eq $Headers)
         {
-            $Headers=@{}
+            $Headers = @{}
         }
         $Headers["Authorization"] = "Bearer $AccessToken"
 
@@ -42,18 +40,18 @@ function Call-MSGraphAPI
         $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
 
         # Check if we have more items to fetch
-        if($response.psobject.properties.name -match '@odata.nextLink')
+        if ($response.psobject.properties.name -match '@odata.nextLink')
         {
-            $items=$response.value.count
+            $items = $response.value.count
 
             # Loop until finished or MaxResults reached
-            while(($url = $response.'@odata.nextLink') -and $items -lt $MaxResults)
+            while (($url = $response.'@odata.nextLink') -and $items -lt $MaxResults)
             {
                 # Return
                 $response.value
                      
                 $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
-                $items+=$response.value.count
+                $items += $response.value.count
             }
 
             # Return
@@ -64,7 +62,7 @@ function Call-MSGraphAPI
         {
 
             # Return
-            if($response.psobject.properties.name -match "Value")
+            if ($response.psobject.properties.name -match "Value")
             {
                 return $response.value 
             }
@@ -77,3 +75,26 @@ function Call-MSGraphAPI
     }
 }
 
+# Download a file from an url in an object attribute
+# Jun 30st 2022
+function DownloadFile
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $True, ValueFromPipeline)]
+        [Object]$Data,
+        [Parameter(Mandatory = $False)]
+        [String]$Directory = "",
+        [Parameter(Mandatory = $False)]
+        [String]$FileNameAttribute = "name",
+        [Parameter(Mandatory = $False)]
+        [String]$DownloadUrlAttribute = "@microsoft.graph.downloadUrl"
+    )
+    Process
+    {
+        $Data | Where-Object { $($_.$DownloadUrlAttribute) } | ForEach-Object { 
+            Write-Host "Filename : $($_.$FileNameAttribute)"
+            Start-BitsTransfer -Asynchronous -Source $($_.$DownloadUrlAttribute) -Destination $Directory$($_.$FileNameAttribute) 
+        }
+    }
+}

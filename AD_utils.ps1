@@ -78,7 +78,7 @@ function Invoke-RegQueryInfoKey
         # LastWrite
         [int64]$lw=0
 
-        $error = [AADInternals.Native]::RegQueryInfoKey(
+        $err = [AADInternals.Native]::RegQueryInfoKey(
             $RegKey.Handle,
             $name,         # ClassName
             [ref] $length, # ClassNameLength
@@ -93,7 +93,7 @@ function Invoke-RegQueryInfoKey
             [ref] $lw      # LastWrite
         )
 
-        if ($error -ne 0) {
+        if ($err -ne 0) {
             Throw "Error while invoking RegQueryInfoKey"
         }
         else {
