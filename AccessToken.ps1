@@ -677,13 +677,15 @@ function Get-AccessTokenForAzureCoreManagement
         [String]$Domain,
         [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
+        [Parameter(Mandatory = $False)]
+        [bool]$IncludeRefreshToken = $false,
         [switch]$SaveToCache,
         [Parameter(Mandatory = $False)]
         [String]$Tenant
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $IncludeRefreshToken
     }
 }
 
