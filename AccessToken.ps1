@@ -678,7 +678,7 @@ function Get-AccessTokenForAzureCoreManagement
         [Parameter(ParameterSetName = 'DeviceCode', Mandatory = $True)]
         [switch]$UseDeviceCode,
         [Parameter(Mandatory = $False)]
-        [bool]$IncludeRefreshToken = $false,
+        [switch]$IncludeRefreshToken,
         [switch]$SaveToCache,
         [Parameter(Mandatory = $False)]
         [String]$Tenant
