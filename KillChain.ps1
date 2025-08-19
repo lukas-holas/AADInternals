@@ -1115,24 +1115,29 @@ function Invoke-UserEnumerationAsInsider
         [switch] $Groups,
         [switch] $GroupMembers,
         [Parameter(Mandatory=$False)]
-        [String]$GroupId
+        [String] $GroupId,
+        [Parameter(Mandatory=$False)]
+        [String] $AccessToken
     )
     Begin
     {
     }
     Process
     {
-        # Get access token from cache
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-
-         # Create a new AccessToken for graph.microsoft.com
-        $refresh_token = Get-RefreshTokenFromCache -AccessToken $AccessToken
-        if([string]::IsNullOrEmpty($refresh_token))
+        if (-not($AccessToken))
         {
-            throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
+            # Get access token from cache
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+             # Create a new AccessToken for graph.microsoft.com
+            $refresh_token = Get-RefreshTokenFromCache -AccessToken $AccessToken
+            if([string]::IsNullOrEmpty($refresh_token))
+            {
+                throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
+            }
+            # MSGraph Access Token
+            $AccessToken = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId (Read-Accesstoken $AccessToken).tid -RefreshToken $refresh_token -SaveToCache $true
         }
-        # MSGraph Access Token
-        $AccessToken = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId (Read-Accesstoken $AccessToken).tid -RefreshToken $refresh_token -SaveToCache $true
 
         # Get the users and some relevant information
         if([String]::IsNullOrEmpty($GroupId))
