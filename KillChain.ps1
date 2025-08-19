@@ -1117,7 +1117,8 @@ function Invoke-UserEnumerationAsInsider
         [Parameter(Mandatory=$False)]
         [String] $GroupId,
         [Parameter(Mandatory=$False)]
-        [String] $AccessToken
+        [String] $AccessToken,
+        [int] $PageSize=100
     )
     Begin
     {
@@ -1142,21 +1143,21 @@ function Invoke-UserEnumerationAsInsider
         # Get the users and some relevant information
         if([String]::IsNullOrEmpty($GroupId))
         {
-            $users = Call-MSGraphAPI -MaxResults $MaxResults -AccessToken $AccessToken -API "users" -ApiVersion "v1.0" -QueryString "`$select=id,displayName,userPrincipalName,userType,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,onPremisesDistinguishedName,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,proxyAddresses,businessPhones,identities"
+            $users = Call-MSGraphAPI -MaxResults $MaxResults -AccessToken $AccessToken -API "users" -ApiVersion "v1.0" -QueryString "`$top=$PageSize&`$select=id,displayName,userPrincipalName,userType,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,onPremisesDistinguishedName,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,proxyAddresses,businessPhones,identities"
         }
 
         # Get the groups
         if($Groups -or $GroupMembers -or $GroupId)
         {
-            $groupsAPI="groups"
-            $groupQS = ""
+            $groupsAPI = "groups"
+            $groupQS = "`$top=$PageSize"
             if($GroupMembers -or $GroupId)
             {
-                $groupQS="`$expand=members"
+                $groupQS += "&`$expand=members"
             }
             if($GroupId)
             {
-                $groupsAPI="groups/$GroupId/"
+                $groupsAPI = "groups/$GroupId/"
             }
             $groupResults = Call-MSGraphAPI -MaxResults $MaxResults -AccessToken $AccessToken -API $groupsAPI -ApiVersion "v1.0" -QueryString $groupQS
         }
