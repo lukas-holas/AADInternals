@@ -124,7 +124,7 @@ function Get-TenantDetails
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Call the API
-        $response=Call-GraphAPI -AccessToken $AccessToken -Command tenantDetails 
+        $response=Call-GraphAPI -AccessToken $AccessToken -Command tenantDetails
         
         # Verbose
         Write-Verbose "TENANT INFORMATION: $($response.value | Out-String)"

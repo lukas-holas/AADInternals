@@ -421,7 +421,7 @@ function Get-MSGraphGroupMembers
     }
 }
 
-# Gets the group's members
+# Gets the role's members
 # Jun 17th 2020
 function Get-MSGraphRoleMembers
 {
@@ -451,7 +451,7 @@ function Get-MSGraphDomains
     )
     Process
     {
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "domains" -ApiVersion beta
+        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "domains" -ApiVersion "v1.0"
 
         return $results
     }
@@ -470,7 +470,7 @@ function Get-MSGraphTeams
     )
     Process
     {
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "teams/$GroupId" -ApiVersion v1.0
+        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "teams/$GroupId" -ApiVersion "v1.0"
 
         return $results
     }
@@ -537,8 +537,7 @@ function Get-TenantAuthPolicy
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy" 
-
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy" -ApiVersion "v1.0"
 
         return $results
     }
@@ -1285,5 +1284,424 @@ function Get-B2CEncryptionKeys
                 }
             }
         }
+    }
+}
+
+
+function Get-MSGraphCAPolicies
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$TenantId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://graph.microsoft.com"
+
+        # Call the Microsoft Graph API to get conditional access policies
+        $caApi = if([string]::IsNullOrEmpty($TenantId)) { "identity/conditionalAccess/policies" } else { "identity/conditionalAccess/policies/$TenantId" }
+        $caResponse = Call-MSGraphAPI -AccessToken $AccessToken -API $caApi -ApiVersion "v1.0"
+        return $caResponse
+    }
+}
+
+# Aug 25th 2025
+function Get-MSGraphOrganization
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$TenantId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://graph.microsoft.com"
+
+        # Call the Microsoft Graph API to get organization information
+        $orgApi = if([string]::IsNullOrEmpty($TenantId)) { "organization" } else { "organization/$TenantId" }
+        $orgResponse = Call-MSGraphAPI -AccessToken $AccessToken -API $orgApi -ApiVersion "v1.0"
+        return $orgResponse
+    }
+}
+
+# Aug 25th 2025
+function Get-MSGraphRootSite
+{
+<#
+    .SYNOPSIS
+    Gets the SharePoint root site via Microsoft Graph.
+
+    .DESCRIPTION
+    Calls Microsoft Graph v1.0 endpoint /sites/root and returns the site object.
+
+    .PARAMETER AccessToken
+    Optional access token for https://graph.microsoft.com. Retrieved from cache if not provided.
+
+    .EXAMPLE
+    Get-MSGraphRootSite | Select-Object id, webUrl
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "sites/root" -ApiVersion "v1.0"
+
+        return $results
+    }
+}
+
+# Aug 25th 2025
+function Get-MSGraphDirectoryRoles
+{
+<#
+    .SYNOPSIS
+    Lists active directory roles and their members using Microsoft Graph.
+
+    .DESCRIPTION
+    Retrieves active Azure AD directory roles (directoryRoles) and, for each, fetches members.
+    Returns objects shaped similar to legacy Get-Roles + Get-RoleMembers output:
+      Name, IsEnabled, IsSystem, ObjectId (roleTemplateId), Members (DisplayName, UserPrincipalName).
+
+    .PARAMETER AccessToken
+    Optional access token for https://graph.microsoft.com. Retrieved from cache if not provided.
+
+    .EXAMPLE
+    Get-MSGraphDirectoryRoles | Where-Object Members -ne $null | Select-Object Name,Members
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Get active directory roles (only activated roles are returned)
+        $roles = Call-MSGraphAPI -AccessToken $AccessToken -API "directoryRoles" -ApiVersion "v1.0" -QueryString "`$select=id,displayName,roleTemplateId"
+
+        $roleInformation = @()
+        foreach($role in ($roles | Sort-Object -Property displayName))
+        {
+            # Fetch role members; may include users, groups, service principals
+            $members = @()
+            try { $members = @(Get-MSGraphRoleMembers -AccessToken $AccessToken -RoleId $role.id) } catch {}
+
+            $attributes = [ordered]@{
+                Name       = $role.displayName
+                IsEnabled  = $true
+                IsSystem   = $true
+                # Use roleTemplateId to match legacy fixed GUIDs like Global Admin (62e90394-...)
+                ObjectId   = $role.roleTemplateId
+                Members    = $members
+            }
+
+            $roleInformation += (New-Object psobject -Property $attributes)
+        }
+
+        return $roleInformation
+    }
+}
+
+# Aug 26th 2025
+function Get-MSGraphPartnerContracts
+{
+<#
+    .SYNOPSIS
+    Lists partner contracts for the current tenant via Microsoft Graph.
+
+    .DESCRIPTION
+    Calls GET /v1.0/contracts and returns the collection. In a partner tenant, this lists
+    customer contracts. In a customer tenant, this lists partner contracts.
+
+    .PARAMETER AccessToken
+    Optional access token for https://graph.microsoft.com. Retrieved from cache if not provided.
+
+    .EXAMPLE
+    Get-MSGraphPartnerContracts | Select-Object contractType, customerId, defaultDomainName
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "contracts" -ApiVersion "v1.0"
+        return $results
+    }
+}
+
+# Aug 26th 2025
+function Get-MSGraphDelegatedAdminCustomers
+{
+<#
+    .SYNOPSIS
+    Lists delegated admin customers (GDAP/DAP relationships) for a partner tenant.
+
+    .DESCRIPTION
+    Calls GET /v1.0/tenantRelationships/delegatedAdminCustomers to return customer tenants
+    that have a delegated admin relationship with the current tenant (partner).
+
+    .PARAMETER AccessToken
+    Optional access token for https://graph.microsoft.com. Retrieved from cache if not provided.
+
+    .EXAMPLE
+    Get-MSGraphDelegatedAdminCustomers | Select-Object id, displayName, tenantId
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "tenantRelationships/delegatedAdminCustomers" -ApiVersion "v1.0"
+        return $results
+    }
+}
+
+# Aug 26th 2025
+function Get-MSGraphDelegatedAdminRelationships
+{
+<#
+    .SYNOPSIS
+    Lists delegated admin relationships (GDAP) and optionally access assignments with names.
+
+    .DESCRIPTION
+    - GET /v1.0/tenantRelationships/delegatedAdminRelationships
+    - If -IncludeAssignments, fetches /tenantRelationships/delegatedAdminRelationships/{id}/accessAssignments
+    - If -ResolveNames, resolves roleDefinitionId to displayName and group id to displayName
+
+    .PARAMETER AccessToken
+    Optional access token for https://graph.microsoft.com. Retrieved from cache if not provided.
+
+    .PARAMETER IncludeAssignments
+    When set, include access assignments for each relationship.
+
+    .PARAMETER ResolveNames
+    When set with IncludeAssignments, resolves role names and group display names.
+
+    .EXAMPLE
+    Get-MSGraphDelegatedAdminRelationships -IncludeAssignments -ResolveNames
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [switch]$IncludeAssignments,
+        [switch]$ResolveNames
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $relationships = Call-MSGraphAPI -AccessToken $AccessToken -API "tenantRelationships/delegatedAdminRelationships" -ApiVersion "v1.0"
+
+        if(-not $IncludeAssignments){ return $relationships }
+
+        # Prepare optional maps for resolving names
+        $roleMap = @{}
+        if($ResolveNames){
+            try {
+                $defs = Call-MSGraphAPI -AccessToken $AccessToken -API "roleManagement/directory/roleDefinitions" -ApiVersion "v1.0" -QueryString "`$select=id,displayName"
+                foreach($d in $defs){ if($d.id){ $roleMap[$d.id] = $d.displayName } }
+            } catch {}
+        }
+
+        $out = @()
+        foreach($rel in $relationships){
+            $assignments = @()
+            try {
+                $as = Call-MSGraphAPI -AccessToken $AccessToken -API "tenantRelationships/delegatedAdminRelationships/$($rel.id)/accessAssignments" -ApiVersion "v1.0"
+                foreach($a in $as){
+                    $groupName = $null
+                    if($ResolveNames -and $a.accessContainer -and $a.accessContainer.type -eq "securityGroup" -and $a.accessContainer.externalId){
+                        try {
+                            $g = Call-MSGraphAPI -AccessToken $AccessToken -API "groups/$($a.accessContainer.externalId)" -ApiVersion "v1.0" -QueryString "`$select=id,displayName"
+                            $groupName = $g.displayName
+                        } catch {}
+                    }
+
+                    # Resolve unified role display names if requested
+                    $roles = @()
+                    if($a.accessDetails -and $a.accessDetails.unifiedRoles){
+                        foreach($r in $a.accessDetails.unifiedRoles){
+                            if($ResolveNames -and $roleMap.ContainsKey($r.roleDefinitionId)){
+                                $roles += $roleMap[$r.roleDefinitionId]
+                            } else {
+                                $roles += $r.roleDefinitionId
+                            }
+                        }
+                    }
+
+                    $assignments += [pscustomobject]@{
+                        id                = $a.id
+                        accessContainer   = $a.accessContainer
+                        groupDisplayName  = $groupName
+                        roles             = $roles
+                        accessDetails     = $a.accessDetails
+                        status            = $a.status
+                        createdDateTime   = $a.createdDateTime
+                        lastModifiedDateTime = $a.lastModifiedDateTime
+                    }
+                }
+            } catch {}
+
+            $o = [pscustomobject]@{
+                id                    = $rel.id
+                displayName           = $rel.displayName
+                status                = $rel.status
+                customerTenantId      = $rel.customer.tenantId
+                createdDateTime       = $rel.createdDateTime
+                endDateTime           = $rel.endDateTime
+                accessAssignments     = $assignments
+            }
+            $out += $o
+        }
+
+        return $out
+    }
+}
+
+# Aug 26th 2025
+function Get-MSGraphIdentitySecurityDefaultsPolicy
+{
+<#
+    .SYNOPSIS
+    Gets the Identity Security Defaults Enforcement Policy via Microsoft Graph.
+
+    .DESCRIPTION
+    Calls Microsoft Graph v1.0 endpoint /policies/identitySecurityDefaultsEnforcementPolicy and returns the policy object.
+
+    .PARAMETER AccessToken
+    Optional access token for https://graph.microsoft.com. Retrieved from cache if not provided.
+
+    .EXAMPLE
+    Get-MSGraphIdentitySecurityDefaultsPolicy | Select-Object id, displayName, isEnabled
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "policies/identitySecurityDefaultsEnforcementPolicy" -ApiVersion "v1.0"
+        return $results
+    }
+}
+
+# Aug 26th 2025
+function Get-MSGraphSubscribedSkus
+{
+<#
+    .SYNOPSIS
+    Gets the tenant's subscribed SKUs via Microsoft Graph.
+
+    .DESCRIPTION
+    Calls Microsoft Graph v1.0 endpoint /subscribedSkus and returns the collection of subscribedSku objects.
+
+    .PARAMETER AccessToken
+    Optional access token for https://graph.microsoft.com. Retrieved from cache if not provided.
+
+    .EXAMPLE
+    Get-MSGraphSubscribedSkus | Select-Object skuId, skuPartNumber, consumedUnits
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "subscribedSkus" -ApiVersion "v1.0"
+        return $results
+    }
+}
+
+function Get-MSGraphAccessPackages
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Retrieve all access packages
+        $accessPackages = Call-MSGraphAPI -AccessToken $AccessToken -API "identityGovernance/entitlementManagement/accessPackages" -ApiVersion "v1.0"
+
+        $results = @()
+
+        foreach ($package in $accessPackages.value) {
+            # Get assignment policies for each package
+            $policies = Call-MSGraphAPI -AccessToken $AccessToken -API "identityGovernance/entitlementManagement/accessPackages/$($package.id)/accessPackageAssignmentPolicies" -ApiVersion "v1.0"
+
+            $results += [PSCustomObject]@{
+                Id                = $package.id
+                DisplayName       = $package.displayName
+                Description       = $package.description
+                CreatedDateTime   = $package.createdDateTime
+                IsHidden          = $package.isHidden
+                AssignmentPolicies = $policies.value
+            }
+        }
+
+        return $results
+    }
+}
+
+function Get-MSGraphAdministrativeUnits
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Retrieve all administrative units
+        $administrativeUnits = Call-MSGraphAPI -AccessToken $AccessToken -API "directory/administrativeUnits" -ApiVersion "v1.0"
+
+        foreach ($au in $administrativeUnits) {
+            # Retrieve scoped role assignments for this AU
+            $roleAssignments = Call-MSGraphAPI -AccessToken $AccessToken -API "directory/administrativeUnits/$($au.id)/scopedRoleMembers" -ApiVersion "v1.0"
+
+            # Attach role assignments to AU object
+            $au | Add-Member -NotePropertyName "ScopedRoleAssignments" -NotePropertyValue $roleAssignments.value -Force
+        }
+
+        return $administrativeUnits
     }
 }

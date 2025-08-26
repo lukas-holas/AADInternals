@@ -352,6 +352,18 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Set-RolloutPolicy"
     "Get-TenantDomain"
     "Get-B2CEncryptionKeys"
+    "Get-MSGraphOrganization"
+    "Get-MSGraphDomains"
+    "Get-MSGraphIdentitySecurityDefaultsPolicy"
+    "Get-MSGraphCAPolicies"
+    "Get-MSGraphRootSite"
+    "Get-MSGraphSubscribedSkus"
+    "Get-MSGraphAccessPackages"
+    "Get-MSGraphAdministrativeUnits"
+    "Get-MSGraphPartnerContracts"
+    "Get-MSGraphDelegatedAdminCustomers"
+    "Get-MSGraphDelegatedAdminRelationships"
+    "Get-MSGraphDirectoryRoles"
 
     # KillChain.ps1
     "Invoke-UserEnumerationAsOutsider"
@@ -361,6 +373,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Invoke-ReconAsInsider"
     "Invoke-UserEnumerationAsInsider"
     "Invoke-Phishing"
+    "Invoke-MSGraphReconAsInsider"
+    "Invoke-EntraIDRoleEnumeration"
 
     # PRT.ps1
     "Get-UserPRTKeys"

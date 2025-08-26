@@ -1067,6 +1067,166 @@ function Invoke-ReconAsInsider
     }
 }
 
+function Invoke-MSGraphReconAsInsider
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Begin
+    {
+    }
+    Process
+    {
+        # Ensure we have a Microsoft Graph access token
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Organization
+        $org = $null; $orgError = $null
+        try { $org = Get-MSGraphOrganization -AccessToken $AccessToken } catch { $org = $null; $orgError = $_.Exception.Message }
+
+        # Domains
+        $domains = $null; $domainsError = $null
+        try { $domains = Get-MSGraphDomains -AccessToken $AccessToken } catch { $domains = $null; $domainsError = $_.Exception.Message }
+
+        # Auth policy and Security Defaults
+        $authPolicy = $null; $authPolicyError = $null
+        try { $authPolicy = Get-TenantAuthPolicy -AccessToken $AccessToken } catch { $authPolicy = $null; $authPolicyError = $_.Exception.Message }
+
+        $securityDefaults = $null; $securityDefaultsError = $null
+        try { $securityDefaults = Get-MSGraphIdentitySecurityDefaultsPolicy -AccessToken $AccessToken } catch { $securityDefaults = $null; $securityDefaultsError = $_.Exception.Message }
+
+        # Conditional Access Policies
+        $caPolicies = $null; $caPoliciesError = $null
+        try { $caPolicies = Get-MSGraphCAPolicies -AccessToken $AccessToken } catch { $caPolicies = $null; $caPoliciesError = $_.Exception.Message }
+
+        # SharePoint root site
+        $rootSite = $null; $rootSiteError = $null
+        try { $rootSite = Get-MSGraphRootSite -AccessToken $AccessToken } catch { $rootSite = $null; $rootSiteError = $_.Exception.Message }
+
+        # Subscribed SKUs
+        $subscribedSkus = $null; $subscribedSkusError = $null
+        try { $subscribedSkus = Get-MSGraphSubscribedSkus -AccessToken $AccessToken } catch { $subscribedSkus = $null; $subscribedSkusError = $_.Exception.Message }
+
+        # Entitlement Management: Access Packages (if any)
+        $accessPackages = $null; $accessPackagesError = $null
+        try { $accessPackages = Get-MSGraphAccessPackages -AccessToken $AccessToken } catch { $accessPackages = $null; $accessPackagesError = $_.Exception.Message }
+
+        # Administrative Units
+        $administrativeUnits = $null; $administrativeUnitsError = $null
+        try { $administrativeUnits = Get-MSGraphAdministrativeUnits -AccessToken $AccessToken } catch { $administrativeUnits = $null; $administrativeUnitsError = $_.Exception.Message }
+
+        # Partner relationships (contracts/customers/GDAP)
+        $partnerContracts = $null; $partnerContractsError = $null
+        try { $partnerContracts = @(Get-MSGraphPartnerContracts -AccessToken $AccessToken) } catch { $partnerContracts = $null; $partnerContractsError = $_.Exception.Message }
+
+        $delegatedAdminCustomers = $null; $delegatedAdminCustomersError = $null
+        try { $delegatedAdminCustomers = @(Get-MSGraphDelegatedAdminCustomers -AccessToken $AccessToken) } catch { $delegatedAdminCustomers = $null; $delegatedAdminCustomersError = $_.Exception.Message }
+
+        $delegatedAdminRelationships = $null; $delegatedAdminRelationshipsError = $null
+        try { $delegatedAdminRelationships = @(Get-MSGraphDelegatedAdminRelationships -AccessToken $AccessToken -IncludeAssignments -ResolveNames) } catch { $delegatedAdminRelationships = $null; $delegatedAdminRelationshipsError = $_.Exception.Message }
+
+        # Brief summary
+        if ($domainsError) { Write-Host "Domains: ERROR - $domainsError" }
+        elseif ($domains) { Write-Host "Domains: $(@($domains).Count)" } else { Write-Host "Domains: 0" }
+
+        if ($caPoliciesError) { Write-Host "CA policies: ERROR - $caPoliciesError" }
+        elseif ($caPolicies) { Write-Host "CA policies: $(@($caPolicies).Count)" } else { Write-Host "CA policies: 0" }
+
+        if ($subscribedSkusError) { Write-Host "Subscribed SKUs: ERROR - $subscribedSkusError" }
+        elseif ($subscribedSkus) { Write-Host "Subscribed SKUs: $(@($subscribedSkus).Count)" } else { Write-Host "Subscribed SKUs: 0" }
+
+        if ($administrativeUnitsError) { Write-Host "Administrative Units: ERROR - $administrativeUnitsError" }
+        elseif ($administrativeUnits) { Write-Host "Administrative Units: $(@($administrativeUnits).Count)" } else { Write-Host "Administrative Units: 0" }
+
+        if ($partnerContractsError) { Write-Host "Partner contracts: ERROR - $partnerContractsError" }
+        elseif ($partnerContracts) { Write-Host "Partner contracts: $(@($partnerContracts).Count)" } else { Write-Host "Partner contracts: 0" }
+
+        if ($delegatedAdminCustomersError) { Write-Host "Delegated Admin Customers: ERROR - $delegatedAdminCustomersError" }
+        elseif ($delegatedAdminCustomers) { Write-Host "Delegated Admin Customers: $(@($delegatedAdminCustomers).Count)" } else { Write-Host "Delegated Admin Customers: 0" }
+
+        if ($delegatedAdminRelationshipsError) { Write-Host "Delegated Admin Relationships: ERROR - $delegatedAdminRelationshipsError" }
+        elseif ($delegatedAdminRelationships) { Write-Host "Delegated Admin Relationships: $(@($delegatedAdminRelationships).Count)" } else { Write-Host "Delegated Admin Relationships: 0" }
+
+        # Return a consolidated object
+        $result = [ordered]@{
+            Organization = [pscustomobject]@{
+                Data     = $org
+                Error    = $orgError
+            }
+            Domains = [pscustomobject]@{
+                Data     = $domains
+                Error    = $domainsError
+            }
+            AuthPolicy = [pscustomobject]@{
+                Data     = $authPolicy
+                Error    = $authPolicyError
+            }
+            SecurityDefaultsPolicy = [pscustomobject]@{
+                Data     = $securityDefaults
+                Error    = $securityDefaultsError
+            }
+            ConditionalAccessPolicies = [pscustomobject]@{
+                Data     = $caPolicies
+                Error    = $caPoliciesError
+            }
+            RootSite = [pscustomobject]@{
+                Data     = $rootSite
+                Error    = $rootSiteError
+            }
+            SubscribedSkus = [pscustomobject]@{
+                Data     = $subscribedSkus
+                Error    = $subscribedSkusError
+            }
+            AccessPackages = [pscustomobject]@{
+                Data     = $accessPackages
+                Error    = $accessPackagesError
+            }
+            AdministrativeUnits = [pscustomobject]@{
+                Data     = $administrativeUnits
+                Error    = $administrativeUnitsError
+            }
+            PartnerContracts = [pscustomobject]@{
+                Data     = $partnerContracts
+                Error    = $partnerContractsError
+            }
+            DelegatedAdminCustomers = [pscustomobject]@{
+                Data     = $delegatedAdminCustomers
+                Error    = $delegatedAdminCustomersError
+            }
+            DelegatedAdminRelationships = [pscustomobject]@{
+                Data     = $delegatedAdminRelationships
+                Error    = $delegatedAdminRelationshipsError
+            }
+        }
+
+        return New-Object psobject -Property $result
+    }
+}
+
+function Invoke-EntraIDRoleEnumeration
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $rolesEnum = Get-MSGraphDirectoryRoles -AccessToken $AccessToken
+
+        foreach ($role in $rolesEnum)
+        {
+            Write-Host "$($role.Name) : $($role.Members.Count) members"
+        }
+        
+        return $rolesEnum
+    }
+}
+
 # Starts crawling the organisation for user names and groups
 # Jun 16th 2020
 function Invoke-UserEnumerationAsInsider
