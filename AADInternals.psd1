@@ -544,6 +544,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-Translation"
     "Get-MyTeams"
     "Get-TeamsExternalUserInformation"
+    "Get-TeamsMemberships"
 
     # Teams_utils.ps1
     "Get-TeamsUserSettings"

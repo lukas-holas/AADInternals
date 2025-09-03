@@ -14,7 +14,7 @@ function Get-Sids{
         if(![String]::IsNullOrEmpty($AccessToken))
         {
             # Get all Azure AD users, filtered users, or just one with userPrincipalName
-            $AADUsers = Get-AADUsers -AccessToken $AccessToken -SearchString $SearchString -UserPrincipalName $UserPrincipalName
+            $AADUsers = Get-MSGraphUsers -AccessToken $AccessToken -SearchString $SearchString -UserPrincipalName $UserPrincipalName
             $output=@()
             if($AADUsers -ne $null)
             {

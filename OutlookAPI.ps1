@@ -1,21 +1,21 @@
 ﻿# Outlook REST Api functions
 
 function Send-OutlookMessage
-<#
-    .SYNOPSIS
-    Sends mail message using Outlook REST API
-
-    .DESCRIPTION
-    Sends mail using Outlook REST API using the account of given credentials. 
-    Message MUST be html (or plaintext).
-
-    
-    .Example
-    PS C:\>$At=Get-AADIntAccessTokenForEXO
-    PS C:\>Send-AADIntOutlookMessage -AccessToken $At -Recipient someone@company.com -Subject "An email" -Message "This is a message!"
-   
-#>
 {
+    <#
+        .SYNOPSIS
+        Sends mail message using Outlook REST API
+    
+        .DESCRIPTION
+        Sends mail using Outlook REST API using the account of given credentials. 
+        Message MUST be html (or plaintext).
+    
+        
+        .Example
+        PS C:\>$At=Get-AADIntAccessTokenForEXO
+        PS C:\>Send-AADIntOutlookMessage -AccessToken $At -Recipient someone@company.com -Subject "An email" -Message "This is a message!"
+    
+    #>
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,

@@ -67,34 +67,34 @@ abusableRule                                               groupId
     }
 }
 
-function Get-AADUsers
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$False)]
-        [String]$SearchString,
-        [Parameter(Mandatory=$False)]
-        [String]$UserPrincipalName
-        
-    )
-    Process
-    {
-        if(![string]::IsNullOrEmpty($SearchString))
-        {
-            $queryString="`$filter=(startswith(displayName,'$SearchString') or startswith(userPrincipalName,'$SearchString'))"
-        }
-        elseif(![string]::IsNullOrEmpty($UserPrincipalName))
-        {
-            $queryString="`$filter=userPrincipalName eq '$UserPrincipalName'"
-        }
-
-        $results=Call-GraphAPI -AccessToken $AccessToken -Command users -QueryString $queryString
-
-        return $results
-    }
-}
+#function Get-AADUsers
+#{
+#    [cmdletbinding()]
+#    Param(
+#        [Parameter(Mandatory=$False)]
+#        [String]$AccessToken,
+#        [Parameter(Mandatory=$False)]
+#        [String]$SearchString,
+#        [Parameter(Mandatory=$False)]
+#        [String]$UserPrincipalName
+#        
+#    )
+#    Process
+#    {
+#        if(![string]::IsNullOrEmpty($SearchString))
+#        {
+#            $queryString="`$filter=(startswith(displayName,'$SearchString') or startswith(userPrincipalName,'$SearchString'))"
+#        }
+#        elseif(![string]::IsNullOrEmpty($UserPrincipalName))
+#        {
+#            $queryString="`$filter=userPrincipalName eq '$UserPrincipalName'"
+#        }
+#
+#        $results=Call-GraphAPI -AccessToken $AccessToken -Command users -QueryString $queryString
+#
+#        return $results
+#    }
+#}
 
 # Gets the tenant details 
 function Get-TenantDetails
