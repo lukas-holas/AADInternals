@@ -125,6 +125,11 @@ function Get-AccessTokenFromCache
         }
 
         # Return
+        if ($IncludeRefreshToken)
+        {
+            $refresh_token = $Script:refresh_tokens["$ClientId-$tResource"]
+            return @($retVal, $refresh_token)
+        }
         return $retVal
     }
 }
@@ -3366,25 +3371,28 @@ function Get-AccessTokenFromCacheRefreshToken
     )
     Process
     {
-        # First get the access token and refresh token from the cache
-        $access_token = $Script:tokens["$ClientId-$Resource"]
-        $refresh_token = $Script:refresh_tokens["$ClientId-$Resource"]
+#        # First get the access token and refresh token from the cache
+#        $access_token = $Script:tokens["$ClientId-$Resource"]
+#        $refresh_token = $Script:refresh_tokens["$ClientId-$Resource"]
+#
+#        if ([string]::IsNullOrEmpty($access_token))
+#        {
+#            Throw "No access token found in the cache for the given Resource and ClientId!"
+#        }
+#
+#        if ([string]::IsNullOrEmpty($refresh_token))
+#        {
+#            Throw "No refresh token found in the cache for the given Resource and ClientId!"
+#        }
+#
+#        if ([string]::IsNullOrEmpty($NewResource))
+#        {
+#            $NewResource = $Resource
+#        }
 
-        if ([string]::IsNullOrEmpty($access_token))
-        {
-            Throw "No access token found in the cache for the given Resource and ClientId!"
-        }
-
-        if ([string]::IsNullOrEmpty($refresh_token))
-        {
-            Throw "No refresh token found in the cache for the given Resource and ClientId!"
-        }
-
-        if ([string]::IsNullOrEmpty($NewResource))
-        {
-            $NewResource = $Resource
-        }
-
+        $tokens = Get-AccessTokenFromCache -ClientId $ClientId -Resource $Resource -IncludeRefreshToken
+        $access_token = $tokens[0]
+        $refresh_token = $tokens[1]
         # Get the token
         $AccessToken = Get-AccessTokenWithRefreshToken -Resource $NewResource -ClientId $ClientId -SaveToCache $SaveToCache -RefreshToken $refresh_token -TenantId (Read-Accesstoken $access_token).tid
         if ([string]::IsNullOrEmpty($AccessToken))

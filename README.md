@@ -5,7 +5,7 @@ For details, please visit https://aadinternals.com/aadinternals
 
 Load module:
 ```powershell
-Import-Module .\AADInternals -Force
+Import-Module .\AADInternals\AADInternals.psd1 -Force
 ```
 
 If you add new function you have to add them in `AADInternals.psd1` before importing the module.
