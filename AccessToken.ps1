@@ -904,6 +904,8 @@ function Get-AccessTokenForAzureCoreManagement
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(Mandatory=$false)]
+        [switch]$IncludeRefreshToken,
         [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
         [switch]$UseMSAL,
         [switch]$SaveToCache,
@@ -937,7 +939,7 @@ function Get-AccessTokenForAzureCoreManagement
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
+        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH -IncludeRefreshToken $IncludeRefreshToken
     }
 }
 
@@ -3329,5 +3331,70 @@ function Get-ESTSAUTHCookie
         }
 
         Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectURI -SubScope $SubScope -DumpESTSAUTH -KMSI $Persistent
+    }
+}
+
+# Tries to generate access token using cached refresh token
+# Jun 1st 2022
+function Get-AccessTokenFromCacheRefreshToken
+{
+    <#
+    .SYNOPSIS
+    Gets OAuth Access Token from a refresh token present in the cache.
+    .DESCRIPTION
+    Gets OAuth Access Token from a refresh token present in the cache.
+    We can also get a new token for an existing entry in the cache.
+
+    .Example
+    PS C:\>Get-AADIntSkypeToken -SaveToCache -UseDeviceCode
+    PS C:\>Get-AADIntAccessTokenFromCacheRefreshToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -SaveToCache  # if a skype token is already present in the cache, update it
+    PS C:\>Get-AADIntAccessTokenFromCache -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"  # not the same token as before
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache -UseDeviceCode  # we need a first token with some privilege, otherwise we'll get 403 (Forbidden) with our ClientId
+    PS C:\>Get-AADIntAccessTokenFromCacheRefreshToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -NewResource "https://api.spaces.skype.com" -SaveToCache
+    PS C:\>Get-AADIntAccessTokenFromCache -Resource "https://api.spaces.skype.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $True)]
+        [String]$Resource,
+        [Parameter(Mandatory = $True)]
+        [String]$ClientId,
+        [Parameter(Mandatory = $False)]
+        [String]$NewResource,
+        [switch]$SaveToCache
+    )
+    Process
+    {
+        # First get the access token and refresh token from the cache
+        $access_token = $Script:tokens["$ClientId-$Resource"]
+        $refresh_token = $Script:refresh_tokens["$ClientId-$Resource"]
+
+        if ([string]::IsNullOrEmpty($access_token))
+        {
+            Throw "No access token found in the cache for the given Resource and ClientId!"
+        }
+
+        if ([string]::IsNullOrEmpty($refresh_token))
+        {
+            Throw "No refresh token found in the cache for the given Resource and ClientId!"
+        }
+
+        if ([string]::IsNullOrEmpty($NewResource))
+        {
+            $NewResource = $Resource
+        }
+
+        # Get the token
+        $AccessToken = Get-AccessTokenWithRefreshToken -Resource $NewResource -ClientId $ClientId -SaveToCache $SaveToCache -RefreshToken $refresh_token -TenantId (Read-Accesstoken $access_token).tid
+        if ([string]::IsNullOrEmpty($AccessToken))
+        {
+            Throw "No access token returned! There may be an empty entry in the cache."
+        }
+
+        if (!$SaveToCache)
+        {
+            return $AccessToken
+        }
     }
 }

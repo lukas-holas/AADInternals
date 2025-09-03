@@ -146,6 +146,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenFromCache"
     "Get-AccessToken"
     "Get-AccessTokenWithRefreshToken"
+    "Get-AccessTokenFromCacheRefreshToken"
     "Get-AccessTokenForAADGraph"
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
