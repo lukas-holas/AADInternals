@@ -98,3 +98,27 @@ function Call-MSGraphAPI
     }
 }
 
+# Download a file from an url in an object attribute
+# Jun 30st 2022
+function DownloadFile
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $True, ValueFromPipeline)]
+        [Object]$Data,
+        [Parameter(Mandatory = $False)]
+        [String]$Directory = "",
+        [Parameter(Mandatory = $False)]
+        [String]$FileNameAttribute = "name",
+        [Parameter(Mandatory = $False)]
+        [String]$DownloadUrlAttribute = "@microsoft.graph.downloadUrl"
+    )
+    Process
+    {
+        $Data | Where-Object { $($_.$DownloadUrlAttribute) } | ForEach-Object { 
+            Write-Host "Filename : $($_.$FileNameAttribute)"
+            Start-BitsTransfer -Asynchronous -Source $($_.$DownloadUrlAttribute) -Destination $Directory$($_.$FileNameAttribute) 
+        }
+    }
+}
+
