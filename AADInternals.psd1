@@ -128,6 +128,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\SyncAgent.ps1"
         ".\Teams.ps1"
         ".\Teams_utils.ps1"
+        ".\Cartography.ps1"
 )
 
 	# Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
@@ -478,6 +479,27 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "New-B2CRefreshToken"
     "New-B2CAuthorizationCode"
 
+    # Cartography.ps1
+    "Export-AzureADToCSV"
+    "ConvertTo-Shared"
+    "ConvertTo-People"
+    "ConvertTo-Team"
+    "ConvertTo-TeamMember"
+    "ConvertTo-JoinedTeam"
+    "ConvertTo-Role"
+    "ConvertTo-Group"
+    "ConvertTo-User"
+    "ConvertTo-GroupRootDrive"
+    "ConvertTo-GroupDrive"
+    "ConvertTo-GroupDriveItem"
+    "ConvertTo-GroupDriveItemContent"
+    "ConvertTo-DirectoryAuditLog"
+    "ConvertTo-DirectoryAuditLogTargetResource"
+    "ConvertTo-DirectoryAuditLogTargetResourceModifiedProperties"
+    "ConvertTo-ServicePrincipals"
+    "ConvertTo-ServicePrincipalsAppRoles"
+    "ConvertTo-ServicePrincipalsPermissionScopes"
+    "ConvertTo-ServicePrincipalAppRoleAssignedTo"
 )
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
