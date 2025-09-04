@@ -372,7 +372,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-MSGraphSiteDriveItemsContent"
     "Get-MSGraphSiteDriveItems"
     "Get-MSGraphSiteRootFolder"
-    "Get-MSGraphRootSiteItemsContent"
+    "Get-MSGraphRootSiteDriveItemsContent"
     "Get-MSGraphPersonalDownloadFiles"
     "Get-MSGraphGroupsDownloadFiles"
     "Get-MSGraphRootSiteDownloadFiles"

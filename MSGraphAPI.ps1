@@ -3274,7 +3274,7 @@ function Get-MSGraphSiteDriveItemsContent
 
 # Get the root site items contents
 # Sep 4th 2025
-function Get-MSGraphRootSiteItemsContent
+function Get-MSGraphRootSiteDriveItemsContent
 {
 
     [cmdletbinding()]
@@ -3440,7 +3440,7 @@ function Get-MSGraphRootSiteDownloadFiles
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Get-MSGraphSiteDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
+        Get-MSGraphRootSiteDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
 
         while (Get-BitsTransfer)
         {
