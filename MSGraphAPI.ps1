@@ -6574,3 +6574,239 @@ function Get-MSGraphRoleManagementPolicies
         Call-MSGraphAPI -AccessToken $AccessToken -API "policies/roleManagementPolicies" -ApiVersion v1.0 -QueryString "`$filter=scopeId eq '$ScopeId' and scopeType eq '$ScopeType'"
     }
 }
+
+
+## Export mailbox content (emails + attachments)
+# Sep 4th 2025
+function Get-MSGraphMailboxContent
+{
+    <#
+    .SYNOPSIS
+    Downloads all (or selected) mailbox emails and attachments via Microsoft Graph.
+
+    .DESCRIPTION
+    Enumerates mail folders for the signed-in (or specified) user mailbox, pages through all messages,
+    saves each message as an .eml (raw MIME when permitted) plus a JSON metadata sidecar, and downloads attachments.
+    Uses existing Call-MSGraphAPI for paging & throttling resilience. Large mailboxes can be filtered by date or folder.
+
+    .PARAMETER AccessToken
+    Access token with Mail.Read or equivalent permissions.
+
+    .PARAMETER UserId
+    Optional UPN or user id. If omitted, uses /me endpoints.
+
+    .PARAMETER OutputPath
+    Directory to store exported content. Created if missing. Structure: <OutputPath>\\<SanitizedUser>\\<FolderPath>\\
+
+    .PARAMETER IncludeFolderNames
+    Array of folder display names to include (case-insensitive). If empty/null, all folders.
+
+    .PARAMETER ExcludeFolderNames
+    Array of folder display names to exclude (case-insensitive).
+
+    .PARAMETER Since
+    Only export messages received on/after this (inclusive). (DateTime)
+
+    .PARAMETER Until
+    Only export messages received on/before this (inclusive). (DateTime)
+
+    .PARAMETER FetchRawMime
+    Attempt to download full MIME for each message (beta $value). Falls back to JSON body extract when fails.
+
+    .PARAMETER MaxMessagesPerFolder
+    Optional cap per folder to limit volume (for testing / sampling). 0 = unlimited.
+
+    .PARAMETER SkipAttachments
+    If set, do not download attachments.
+
+    .EXAMPLE
+    PS> Get-AADIntMSGraphMailboxContent -AccessToken $tok -UserId alice@contoso.com -OutputPath c:\temp\dump -Since (Get-Date).AddDays(-30) -FetchRawMime -Verbose
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$false)]
+        [string]$UserId,
+        [Parameter(Mandatory=$true)]
+        [string]$OutputPath,
+        [Parameter(Mandatory=$false)]
+        [string[]]$IncludeFolderNames,
+        [Parameter(Mandatory=$false)]
+        [string[]]$ExcludeFolderNames,
+        [Parameter(Mandatory=$false)]
+        [datetime]$Since,
+        [Parameter(Mandatory=$false)]
+        [datetime]$Until,
+        [Parameter(Mandatory=$false)]
+        [switch]$FetchRawMime,
+        [Parameter(Mandatory=$false)]
+        [int]$MaxMessagesPerFolder=0,
+        [Parameter(Mandatory=$false)]
+        [switch]$SkipAttachments
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        if(-not (Test-Path -LiteralPath $OutputPath)) { New-Item -ItemType Directory -Path $OutputPath | Out-Null }
+
+        $userSegment = if([string]::IsNullOrEmpty($UserId)) { 'me' } else { "users/$UserId" }
+        $safeUser = if ($UserId) { $UserId } else { 'me' }
+        $safeUser = $safeUser -replace '[^a-zA-Z0-9@._-]','_'
+        $baseUserPath = Join-Path $OutputPath $safeUser
+        if(-not (Test-Path $baseUserPath)) { New-Item -ItemType Directory -Path $baseUserPath | Out-Null }
+
+        $includeSet = $null; if($IncludeFolderNames) { $includeSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase); $IncludeFolderNames | ForEach-Object { $includeSet.Add($_) | Out-Null } }
+        $excludeSet = $null; if($ExcludeFolderNames) { $excludeSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase); $ExcludeFolderNames | ForEach-Object { $excludeSet.Add($_) | Out-Null } }
+
+        Write-Verbose "Enumerating mail folders for $userSegment"
+        $folders = @()
+        try {
+            $folders = Get-MSGraphMailFolders -AccessToken $AccessToken -UserId $UserId
+        } catch { Write-Warning "Failed to enumerate folders: $_"; return }
+
+        foreach($folder in $folders) {
+            $fname = $folder.displayName
+            if($includeSet -and -not $includeSet.Contains($fname)) { Write-Verbose "Skipping folder '$fname' (not in include set)"; continue }
+            if($excludeSet -and $excludeSet.Contains($fname)) { Write-Verbose "Skipping folder '$fname' (in exclude set)"; continue }
+
+            $folderPath = $fname -replace '[\\/:*?"<>|]','_'
+            $folderOut = Join-Path $baseUserPath $folderPath
+            if(-not (Test-Path $folderOut)) { New-Item -ItemType Directory -Path $folderOut | Out-Null }
+
+            Write-Verbose "Exporting messages from folder '$fname'"
+
+            # Build OData filter
+            $filters = @()
+            if($Since) { $filters += "receivedDateTime ge $($Since.ToUniversalTime().ToString('o'))" }
+            if($Until) { $filters += "receivedDateTime le $($Until.ToUniversalTime().ToString('o'))" }
+            $filterQs = if($filters.Count -gt 0) { "$filter=$([System.Web.HttpUtility]::UrlEncode([string]::Join(' and ',$filters)))" } else { $null }
+
+            $api = "$userSegment/mailFolders/$($folder.id)/messages"
+            $messages = @()
+            try {
+                $messages = Call-MSGraphAPI -AccessToken $AccessToken -API $api -ApiVersion "v1.0" -MaxResults 100000 -QueryString $filterQs
+            } catch {
+                Write-Warning "Failed to enumerate messages for folder ${fname}: $_"
+                continue
+            }
+
+            $countExported = 0
+            foreach($msg in $messages) {
+                if($MaxMessagesPerFolder -gt 0 -and $countExported -ge $MaxMessagesPerFolder) { Write-Verbose "Reached cap $MaxMessagesPerFolder for folder '$fname'"; break }
+                $msgId = $msg.id
+                $received = $msg.receivedDateTime
+                $subject = if($msg.subject) { $msg.subject } else { '(no subject)' }
+                $safeSubject = $subject -replace '[\\/:*?"<>|]','_' -replace '\s+','_'
+                $fileBase = "${received:yyyyMMdd_HHmmss}_${safeSubject}_${msgId.Substring(0,8)}"
+                $metaPath = Join-Path $folderOut ($fileBase + '.json')
+                $emlPath = Join-Path $folderOut ($fileBase + '.eml')
+
+                if(Test-Path $metaPath) { Write-Verbose "Skipping message $msgId (already exported)"; continue }
+
+                # Save metadata JSON
+                $msg | ConvertTo-Json -Depth 6 | Out-File -FilePath $metaPath -Encoding UTF8
+
+                if($FetchRawMime) {
+                    $rawApi = "$userSegment/messages/$msgId/`$value"
+                    try {
+                        $mimeBytes = Invoke-RestMethod -Uri "https://graph.microsoft.com/beta/$rawApi" -Headers @{ Authorization = "Bearer $AccessToken" } -Method GET -ErrorAction Stop
+                        if($mimeBytes) { [System.IO.File]::WriteAllBytes($emlPath, [System.Text.Encoding]::UTF8.GetBytes($mimeBytes)) }
+                    } catch {
+                        Write-Verbose "Raw MIME fetch failed for ${msgId}: $_ (will create simple EML)"
+                    }
+                }
+                if(-not (Test-Path $emlPath)) {
+                    # Fallback simple RFC822-ish representation
+                    $lines = @()
+                    $lines += "Subject: $subject"
+                    $lines += "From: $($msg.from.emailAddress.address)"
+                    $lines += "To: $([string]::Join(';', ($msg.toRecipients | ForEach-Object { $_.emailAddress.address })))"
+                    $lines += "Date: $received"
+                    $lines += "Message-ID: $msgId"
+                    $lines += ""
+                    $bodyContent = if($msg.body.content) { $msg.body.content } else { '' }
+                    $lines += $bodyContent
+                    $lines -join "`r`n" | Out-File -FilePath $emlPath -Encoding UTF8
+                }
+
+                if(-not $SkipAttachments) {
+                    try {
+                        $attApi = "$userSegment/messages/$msgId/attachments"
+                        $attachments = Call-MSGraphAPI -AccessToken $AccessToken -API $attApi -ApiVersion "v1.0" -MaxResults 500
+                        if($attachments) {
+                            $attDir = Join-Path $folderOut ($fileBase + '_attachments')
+                            if(-not (Test-Path $attDir)) { New-Item -ItemType Directory -Path $attDir | Out-Null }
+                            foreach($att in $attachments) {
+                                if($att.'@odata.type' -eq '#microsoft.graph.fileAttachment') {
+                                    $aname = if($att.name) { $att.name } else { 'attachment' }
+                                    $safeA = $aname -replace '[\\/:*?"<>|]','_'
+                                    $aPath = Join-Path $attDir $safeA
+                                    try { [System.IO.File]::WriteAllBytes($aPath, [System.Convert]::FromBase64String($att.contentBytes)) } catch { Write-Warning "Failed to write attachment $aname for ${msgId}: $_" }
+                                } elseif($att.'@odata.type' -eq '#microsoft.graph.itemAttachment') {
+                                    $subItemName = $att.name -replace '[\\/:*?"<>|]','_'
+                                    $subMeta = Join-Path $attDir ($subItemName + '.json')
+                                    $att | ConvertTo-Json -Depth 6 | Out-File -FilePath $subMeta -Encoding UTF8
+                                }
+                            }
+                        }
+                    } catch {
+                        Write-Verbose "Attachment fetch failed for ${msgId}: $_"
+                    }
+                }
+
+                $countExported++
+            }
+            Write-Verbose "Exported $countExported message(s) from '$fname'"
+        }
+    }
+}
+
+# Gets mail folders for a mailbox
+# Sep 4th 2025
+function Get-MSGraphMailFolders
+{
+    <#
+    .SYNOPSIS
+    Returns mail folders for the signed-in user or specified mailbox.
+
+    .DESCRIPTION
+    Simple wrapper around /me/mailFolders or /users/{id}/mailFolders using existing token cache helper.
+
+    .PARAMETER AccessToken
+    Access token with Mail.Read or related permissions.
+
+    .PARAMETER UserId
+    Optional user principal name or object id. If omitted, current user (me) is used.
+
+    .PARAMETER MaxResults
+    Maximum folders to return (paging via Call-MSGraphAPI). Default 5000.
+
+    .EXAMPLE
+    PS> Get-AADIntMSGraphMailFolders -AccessToken $tok
+
+    .EXAMPLE
+    PS> Get-AADIntMSGraphMailFolders -AccessToken $tok -UserId alice@contoso.com -Verbose
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$false)]
+        [string]$UserId,
+        [Parameter(Mandatory=$false)]
+        [int]$MaxResults=5000
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        $userSegment = if([string]::IsNullOrEmpty($UserId)) { 'me' } else { "users/$UserId" }
+        Write-Verbose "Getting mail folders for $userSegment"
+        try {
+            Call-MSGraphAPI -AccessToken $AccessToken -API "$userSegment/mailFolders" -ApiVersion "v1.0" -MaxResults $MaxResults
+        } catch {
+            Write-Error "Failed to get mail folders: $_"
+        }
+    }
+}

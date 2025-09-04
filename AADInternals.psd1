@@ -376,6 +376,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-MSGraphPersonalDownloadFiles"
     "Get-MSGraphGroupsDownloadFiles"
     "Get-MSGraphRootSiteDownloadFiles"
+    "Get-MSGraphMailboxContent"
+    "Get-MSGraphMailFolders"
     ## Integrated additions
     "Get-MSGraphApplication"
     "Get-MSGraphApplicationOwners"
