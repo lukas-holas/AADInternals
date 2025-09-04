@@ -2784,6 +2784,38 @@ function Get-MSGraphGroups
     }
 }
 
+# Gets M365 groups information
+# 9/4/2025
+function Get-MSGraphM365Groups
+{
+    <#
+    .SYNOPSIS
+    Get the M365 groups.
+
+    .DESCRIPTION
+    Get the M365 groups.
+
+    .PARAMETER AccessToken
+    Access token used to get the groups.
+
+    .Example
+    PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+    PS C:\>Get-AADIntMSGraphM365Groups -AccessToken $AccessToken
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "groups" -ApiVersion v1.0 -QueryString "`$filter=groupTypes/any(c:c eq 'Unified')"
+    }
+}
+
 # Gets groups that contains a team.
 # Jun 1st 2022
 function Get-MSGraphGroupsWithTeam
@@ -2982,10 +3014,20 @@ function Get-MSGraphGroupDriveItemsContent
 
         if ([string]::IsNullOrEmpty($RootDriveId))
         {
-            $RootDrive = Get-MSGraphGroupRootFolder -GroupId $GroupId -AccessToken $AccessToken -ErrorAction Stop
-            $RootDriveId = $RootDrive.id
-            # Return
-            $RootDrive
+            try {
+                $RootDrive = Get-MSGraphGroupRootFolder -GroupId $GroupId -AccessToken $AccessToken -ErrorAction Stop
+                $RootDriveId = $RootDrive.id
+                # Return
+                $RootDrive
+            }
+            catch {
+                $msg = $_.Exception.Message
+                if ($msg -match 'Access denied' -or $msg -match 'Resource is not found\.') {
+                    Write-Verbose "Group ${GroupId}: $msg (skipping)"
+                    return
+                }
+                else { throw }
+            }
         }
 
         if ([string]::IsNullOrEmpty($RootDriveId))
@@ -2995,7 +3037,17 @@ function Get-MSGraphGroupDriveItemsContent
         }
         
         # Get the files and folders in the root drive
-        $CurrentDrive = Get-MSGraphGroupDriveItems -MaxResults $MaxResults -GroupId $GroupId -DriveId $RootDriveId -AccessToken $AccessToken
+        try {
+            $CurrentDrive = Get-MSGraphGroupDriveItems -MaxResults $MaxResults -GroupId $GroupId -DriveId $RootDriveId -AccessToken $AccessToken
+        }
+        catch {
+            $msg = $_.Exception.Message
+            if ($msg -match 'Access denied' -or $msg -match 'Resource is not found\.') {
+                Write-Verbose "Group ${GroupId} drive ${RootDriveId}: $msg (skipping)"
+                return
+            }
+            else { throw }
+        }
 
         # return
         $CurrentDrive
@@ -3020,7 +3072,7 @@ function Get-MSGraphGroupsDriveItemsContent
 {
     <#
     .SYNOPSIS
-    Get the groups drive items content.
+    Get the M365 groups drive items content.
 
     .DESCRIPTION
     Get recursively the groups drive items content i.e. name, download URL, etc.
@@ -3062,7 +3114,7 @@ function Get-MSGraphGroupsDriveItemsContent
         }
         else
         {
-            $Groups = Get-MSGraphGroups -AccessToken $AccessToken
+            $Groups = Get-MSGraphM365Groups -AccessToken $AccessToken
         }
 
         # return
@@ -3071,14 +3123,350 @@ function Get-MSGraphGroupsDriveItemsContent
         foreach ($groupId in $Groups.Id)
         {
             Write-Verbose "Group identifier : ""$groupId"""
-            
+
             Get-MSGraphGroupDriveItemsContent -MaxResults $MaxResults -GroupId "$groupId" -AccessToken $AccessToken
+        }
+    }
+}
+
+# Get the site root drive
+# Sep 4th 2025
+function Get-MSGraphSiteRootFolder
+{
+    <#
+    .SYNOPSIS
+    Get the root drive (root folder) of a SharePoint site.
+
+    .DESCRIPTION
+    Returns the drive/root object for the given site id.
+
+    .PARAMETER SiteId
+    The site identifier (siteId or combined host, path ID) accepted by Microsoft Graph.
+
+    .PARAMETER AccessToken
+    Access token (resource https://graph.microsoft.com).
+
+    .Example
+    PS C:\>$at = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+    PS C:\>Get-AADIntMSGraphSiteRootFolder -SiteId "contoso.sharepoint.com,1234abcd-0000-1111-2222-ffffffffffff,abcd1234-0000-1111-2222-ffffffffffff" -AccessToken $at
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$SiteId,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        Call-MSGraphAPI -AccessToken $AccessToken -API "sites/$SiteId/drive/root" -ApiVersion "v1.0"
+    }
+}
+
+# Get site drive items
+# Sep 4th 2025
+function Get-MSGraphSiteDriveItems
+{
+    <#
+    .SYNOPSIS
+    Get drive items (children) for a SharePoint site drive folder.
+
+    .DESCRIPTION
+    Lists the direct children for the specified folder (DriveId parameter holds the item id under /drive/items/{id}/children).
+
+    .PARAMETER SiteId
+    Site identifier.
+
+    .PARAMETER DriveId
+    Item (drive item) identifier whose children to list (use root id from Get-MSGraphSiteRootFolder for top-level).
+
+    .PARAMETER AccessToken
+    Access token (Graph).
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)] [String]$SiteId,
+        [Parameter(Mandatory=$True)] [String]$DriveId,
+        [Parameter(Mandatory=$False)] [String]$AccessToken,
+        [Parameter(Mandatory=$False)] [int]$MaxResults=1000
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        Call-MSGraphAPI -MaxResults $MaxResults -AccessToken $AccessToken -API "sites/$SiteId/drive/items/$DriveId/children" -ApiVersion "v1.0"
+    }
+}
+
+# Get site drive items content (recursive)
+# Sep 4th 2025
+function Get-MSGraphSiteDriveItemsContent
+{
+    <#
+    .SYNOPSIS
+    Recursively enumerate drive items (files/folders) in a SharePoint site.
+
+    .DESCRIPTION
+    Similar to Get-MSGraphGroupDriveItemsContent but uses /sites/{siteId}/drive/ endpoints.
+    Returns each item as it’s discovered (write-as-you-go). subfolders are traversed depth-first.
+
+    .PARAMETER SiteId
+    Site identifier.
+
+    .PARAMETER RootDriveId
+    Optional starting drive item id (folder). If omitted, the site root drive/root is used.
+
+    .PARAMETER AccessToken
+    Graph access token.
+
+    .PARAMETER MaxResults
+    Maximum items per paged collection request (soft cap across pagination loop).
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)] [String]$SiteId,
+        [Parameter(Mandatory=$False)] [String]$RootDriveId,
+        [Parameter(Mandatory=$False)] [String]$AccessToken,
+        [Parameter(Mandatory=$False)] [int]$MaxResults=1000
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        if ([string]::IsNullOrEmpty($RootDriveId))
+        {
+            try {
+                $root = Get-MSGraphSiteRootFolder -SiteId $SiteId -AccessToken $AccessToken -ErrorAction Stop
+                $RootDriveId = $root.id
+                $root
+            } catch {
+                $msg = $_.Exception.Message
+                if ($msg -match 'Access denied' -or $msg -match 'Resource is not found\.') {
+                    Write-Verbose "Site ${SiteId}: $msg (skipping)"
+                    return
+                } else { throw }
+            }
+        }
+
+        if ([string]::IsNullOrEmpty($RootDriveId)) { Write-Error "`$RootDriveId is empty. Could not resolve site root."; return }
+
+        $items = $null
+        try {
+            $items = Get-MSGraphSiteDriveItems -SiteId $SiteId -DriveId $RootDriveId -AccessToken $AccessToken -MaxResults $MaxResults
+        } catch {
+            $msg = $_.Exception.Message
+            if ($msg -match 'Access denied' -or $msg -match 'Resource is not found\.') {
+                Write-Verbose "Site $SiteId drive ${RootDriveId}: $msg (skipping)"
+                return
+            } else { throw }
+        }
+
+        $items
+
+        foreach($item in $items) {
+            Write-Verbose "Site $SiteId item: $($item.name)"
+            if ($null -eq $item.folder) { continue }
+            Get-MSGraphSiteDriveItemsContent -SiteId $SiteId -RootDriveId $item.id -AccessToken $AccessToken -MaxResults $MaxResults
+        }
+    }
+}
+
+
+# Get the root site items contents
+# Sep 4th 2025
+function Get-MSGraphRootSiteItemsContent
+{
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory = $False)]
+        [int]$MaxResults = 1000
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894 "
+
+        # Get the root site information
+        $RootSite = Get-MSGraphRootSite -AccessToken $AccessToken
+
+        Get-MSGraphSiteDriveItemsContent -SiteId $RootSite.id -AccessToken $AccessToken -MaxResults $MaxResults
+    }
+}
+
+# Sep 4th 2025
+function Get-MSGraphPersonalDownloadFiles
+{
+    <#
+    .SYNOPSIS
+    Download all files from user's OneDrive.
+
+    .DESCRIPTION
+    Download all files from user's OneDrive. This includes files uploaded to Teams chats by the user. 
+
+    .PARAMETER AccessToken
+    Access token used to get the personal files.
+
+    .PARAMETER Destination
+    Directory where to store the files.
+
+    .Example
+    PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+    PS C:\>Get-AADIntMSGraphPersonalDownloadFiles -AccessToken $AccessToken -Destination "C:\Downloads\OneDrivePersonal"
+    #>
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory = $False)]
+        [String]$Destination = ".",
+        [Parameter(Mandatory = $False)]
+        [int]$MaxResults = 1000
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        
+        Get-MSGraphPersonalDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
+
+        while (Get-BitsTransfer)
+        {
+            Get-BitsTransfer | ForEach-Object {
+                if ($_."JobState" -contains "Transferred")
+                {
+                    Write-Host "File transferred."
+                    Complete-BitsTransfer $_
+                }
+            }
+        }
+    }
+}
+
+# Sep 4th 2025
+function Get-MSGraphGroupsDownloadFiles
+{
+    <#
+    .SYNOPSIS
+    Download all files from M365 groups that the user has access to.
+
+    .DESCRIPTION
+    Download all files from M365 groups. This includes files uploaded to Teams channels.
+
+    .PARAMETER AccessToken
+    Access token used to get the groups files.
+
+    .PARAMETER Destination
+    Directory where to store the files.
+
+    .PARAMETER OnlyTeams
+    Only query the groups have a team associated with them. See Get-MSGraphGroupsWithTeam for more information.
+
+    .Example
+    PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+    PS C:\>Get-AADIntMSGraphGroupsDownloadFiles -AccessToken $AccessToken -Destination "C:\Downloads\Groups"
+
+    .Example
+    PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+    PS C:\>Get-AADIntMSGraphGroupsDownloadFiles -AccessToken $AccessToken -Destination "C:\Downloads\Groups" -OnlyTeams $True
+    #>
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory = $False)]
+        [String]$Destination = ".",
+        [Parameter(Mandatory = $False)]
+        [bool]$OnlyTeams = $false,
+        [Parameter(Mandatory = $False)]
+        [int]$MaxResults = 1000
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        Get-MSGraphGroupsDriveItemsContent -AccessToken $AccessToken -OnlyTeams $OnlyTeams -MaxResults $MaxResults | DownloadFile -Directory $Destination
+
+        while (Get-BitsTransfer)
+        {
+            Get-BitsTransfer | ForEach-Object {
+                if ($_."JobState" -contains "Transferred")
+                {
+                    Write-Host "File transferred."
+                    Complete-BitsTransfer $_
+                }
+            }
+        }
+    }
+}
+
+# Sep 4th 2025
+function Get-MSGraphRootSiteDownloadFiles
+{
+    <#
+    .SYNOPSIS
+    Download all files from the root SharePoint site.
+
+    .DESCRIPTION
+    Download all files from the root SharePoint site.
+
+    .PARAMETER AccessToken
+    Access token used to get the root site files.
+
+    .PARAMETER Destination
+    Directory where to store the files.
+
+    .Example
+    PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+    PS C:\>Get-AADIntMSGraphRootSiteDownloadFiles -AccessToken $AccessToken -Destination "C:\Downloads\RootSite"
+
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory = $False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory = $False)]
+        [String]$Destination = ".",
+        [Parameter(Mandatory = $False)]
+        [int]$MaxResults = 1000
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        Get-MSGraphRootSiteDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
+
+        while (Get-BitsTransfer)
+        {
+            Get-BitsTransfer | ForEach-Object {
+                if ($_."JobState" -contains "Transferred")
+                {
+                    Write-Host "File transferred."
+                    Complete-BitsTransfer $_
+                }
+            }
         }
     }
 }
 
 # Download all the file items in the current directory
 # Jun 30st 2022
+# ---------------
+# Get-MSGraphFiles
+# 	Get-MSGraphGroupsDriveItemsContent
+# 		Get-MSGraphGroups - /groups
+# 			Get-MSGraphGroupDriveItemsContent - recursive
+# 				Get-MSGraphGroupRootFolder - "groups/{group_id}/drive/root"
+# 				Get-MSGraphGroupDriveItems - "groups/{group_id}/drive/items/{drive_id}/children"
+# 	Get-MSGraphPersonalDriveItemsContent - recursive
+# 		Get-MSGraphPersonalRootFolder - "me/drive/root"
+# 		Get-MSGraphPersonalDriveItems - "me/drive/items/{drive_id}/children"
 function Get-MSGraphFiles
 {
     <#
@@ -3114,7 +3502,7 @@ function Get-MSGraphFiles
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894 "
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
         Get-MSGraphGroupsDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
         Get-MSGraphPersonalDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
