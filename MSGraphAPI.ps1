@@ -3440,7 +3440,7 @@ function Get-MSGraphRootSiteDownloadFiles
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Get-MSGraphRootSiteDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
+        Get-MSGraphSiteDriveItemsContent -AccessToken $AccessToken -MaxResults $MaxResults | DownloadFile -Directory $Destination
 
         while (Get-BitsTransfer)
         {
