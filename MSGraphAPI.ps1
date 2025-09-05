@@ -6810,3 +6810,353 @@ function Get-MSGraphMailFolders
         }
     }
 }
+
+# Creates a mail rule
+# Sep 5th 2025
+function New-MSGraphPersonalMailRule
+{
+    <#
+    .SYNOPSIS
+    Creates (adds) a mailbox message rule via Microsoft Graph.
+
+    .DESCRIPTION
+    Wraps POST /users/{id}/mailFolders/inbox/messageRules (or /me/...) allowing the caller to pass a hashtable/psobject
+    representing the rule body. Caller is responsible for providing valid conditions/actions per Graph schema.
+
+    .PARAMETER AccessToken
+    Access token with MailboxSettings.ReadWrite permissions.
+
+    .PARAMETER UserId
+    Optional UPN or object Id. If omitted, uses /me.
+
+    .PARAMETER Rule
+    Hashtable or PSCustomObject describing the rule (displayName, sequence, isEnabled, conditions, actions, exceptions, isReadOnly=false).
+
+    .EXAMPLE
+    $rule = @{ displayName = 'Move finance'; sequence = 1; isEnabled = $true; conditions = @{ subjectContains = @('invoice','payment') }; actions = @{ moveToFolder = '<folderId>'; stopProcessingRules = $true } }
+    New-AADIntMSGraphMailRule -AccessToken $tok -UserId alice@contoso.com -MailFolderId $inboxId -Rule $rule -Verbose
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)] [string]$AccessToken,
+        [Parameter(Mandatory=$false)] [string]$UserId,
+        [Parameter(Mandatory=$true)]  [object]$Rule
+    )
+    Process
+    {
+        if(-not $Rule) { throw 'Rule parameter cannot be null.' }
+        if($Rule -isnot [System.Collections.IDictionary] -and $Rule -isnot [pscustomobject]) { throw 'Rule must be a hashtable or PSCustomObject.' }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId 'e9b154d0-7658-433b-bb25-6b8e0a8a7c59'
+        $userSegment = if([string]::IsNullOrEmpty($UserId)) { 'me' } else { "users/$UserId" }
+
+        # Serialize body
+        $bodyJson = ($Rule | ConvertTo-Json -Depth 10)
+    Write-Verbose "Creating inbox mail rule for $userSegment"
+
+        $api = "$userSegment/mailFolders/inbox/messageRules"
+        try {
+            Call-MSGraphAPI -AccessToken $AccessToken -API $api -ApiVersion 'v1.0' -Method POST -Body $bodyJson -Headers @{ 'Content-Type' = 'application/json' }
+        } catch {
+            Write-Error "Failed to create mail rule: $_"
+        }
+    }
+}
+
+# Deletes a mail rule (by Id or displayName)
+# Sep 5th 2025
+function Remove-MSGraphPersonalMailRule
+{
+    <#
+    .SYNOPSIS
+    Deletes a mail rule by id or display name.
+
+    .DESCRIPTION
+    If RuleId is provided it is used directly. Otherwise the function enumerates inbox messageRules,
+    finds the first rule whose displayName matches (case-insensitive) the provided DisplayName and deletes it.
+
+    .PARAMETER AccessToken
+    Access token with MailboxSettings.ReadWrite permissions.
+
+    .PARAMETER UserId
+    Optional user identifier (UPN/objectId). If omitted operates on /me.
+
+    .PARAMETER RuleId
+    Identifier of the rule to delete.
+
+    .PARAMETER DisplayName
+    Display name of the rule to delete (ignored if RuleId supplied). Match is case-insensitive exact.
+
+    .PARAMETER Force
+    Suppress confirmation prompt.
+
+    .EXAMPLE
+    Remove-AADIntMSGraphPersonalMailRule -AccessToken $tok -DisplayName "Delete keyworded mail"
+
+    .EXAMPLE
+    Remove-AADIntMSGraphPersonalMailRule -AccessToken $tok -RuleId a1b2c3d4-e5f6 -UserId user@contoso.com -Verbose
+    #>
+    [cmdletbinding(SupportsShouldProcess=$true, ConfirmImpact='Medium')]
+    Param(
+        [Parameter(Mandatory=$false)] [string]$AccessToken,
+        [Parameter(Mandatory=$false)] [string]$UserId,
+        [Parameter(Mandatory=$false)] [string]$RuleId,
+        [Parameter(Mandatory=$false)] [string]$DisplayName,
+        [Parameter(Mandatory=$false)] [switch]$Force
+    )
+    Process {
+        if([string]::IsNullOrEmpty($RuleId) -and [string]::IsNullOrEmpty($DisplayName)) { throw 'Provide RuleId or DisplayName.' }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId 'e9b154d0-7658-433b-bb25-6b8e0a8a7c59'
+        $userSegment = if([string]::IsNullOrEmpty($UserId)) { 'me' } else { "users/$UserId" }
+
+        if(-not $RuleId) {
+            Write-Verbose 'Enumerating inbox rules to locate display name match.'
+            try {
+                $rules = Call-MSGraphAPI -AccessToken $AccessToken -API "$userSegment/mailFolders/inbox/messageRules" -ApiVersion 'v1.0' -MaxResults 500
+            } catch { throw "Failed to enumerate rules: $_" }
+            if(-not $rules) { throw 'No rules returned from inbox.' }
+            $RuleId = ($rules | Where-Object { $_.displayName -and ($_.displayName -ieq $DisplayName) } | Select-Object -First 1).id
+            if(-not $RuleId) { throw "No rule found with displayName '$DisplayName'" }
+            Write-Verbose "Matched rule id $RuleId for displayName '$DisplayName'"
+        }
+
+        $api = "$userSegment/mailFolders/inbox/messageRules/$RuleId"
+        if($PSCmdlet.ShouldProcess("$userSegment/$RuleId", 'Delete mail rule')) {
+            try {
+                Call-MSGraphAPI -AccessToken $AccessToken -API $api -ApiVersion 'v1.0' -Method DELETE
+                Write-Verbose "Deleted mail rule $RuleId"
+                [pscustomobject]@{ RuleId = $RuleId; Deleted = $true }
+            } catch {
+                throw "Failed to delete mail rule ${RuleId}: $_"
+            }
+        }
+    }
+}
+
+
+# Creates a rule deleting messages whose subject/body contains specified keywords
+# Sep 5th 2025
+function New-MSGraphHidingRuleDeleteOnKeywords
+{
+    <#
+    .SYNOPSIS
+    Creates a message rule that deletes incoming mail when keywords appear in subject and/or body.
+
+    .DESCRIPTION
+    Builds a rule object and calls internal New-MSGraphPersonalMailRule (inbox scoped). Keywords matched per Graph
+    message rule predicates using subjectContains and/or bodyContains arrays.
+
+    .PARAMETER AccessToken
+    Access token with MailboxSettings.ReadWrite permissions.
+
+    .PARAMETER UserId
+    Optional target user; if omitted uses /me.
+
+    .PARAMETER Keywords
+    One or more keyword strings to match.
+
+    .PARAMETER MatchScope
+    Where to match keywords: Subject, Body, or SubjectOrBody (default).
+
+    .PARAMETER RuleName
+    Display name for the rule (default: Delete keyworded mail).
+
+    .PARAMETER Sequence
+    Rule sequence number (default 1).
+
+    .PARAMETER Disable
+    If set, creates the rule disabled.
+
+    .PARAMETER NoStopProcessing
+    If set, does not stop further rule processing after a match.
+
+    .EXAMPLE
+    New-MSGraphHidingRuleDeleteOnKeywords -AccessToken $tok -UserId user@contoso.com -Keywords phishing urgent -MatchScope SubjectOrBody -Verbose
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)] [string]$AccessToken,
+        [Parameter(Mandatory=$false)] [string]$UserId,
+        [Parameter(Mandatory=$false)] [string[]]$Keywords=@('phishing','hack','spam'),
+        [Parameter(Mandatory=$false)] [ValidateSet('Subject','Body','SubjectOrBody')] [string]$MatchScope='SubjectOrBody',
+        [Parameter(Mandatory=$false)] [string]$RuleName='Delete keyworded mail',
+        [Parameter(Mandatory=$false)] [int]$Sequence=1,
+        [Parameter(Mandatory=$false)] [switch]$Disable,
+        [Parameter(Mandatory=$false)] [switch]$NoStopProcessing
+    )
+    Process {
+        if(-not $Keywords -or $Keywords.Count -eq 0) { throw 'Keywords parameter cannot be empty.' }
+        # Build conditions
+        $conditions = @{}
+        switch($MatchScope) {
+            'Subject' { $conditions.subjectContains = @($Keywords) }
+            'Body'    { $conditions.bodyContains = @($Keywords) }
+            'SubjectOrBody' { $conditions.bodyOrSubjectContains = @($Keywords) }
+        }
+        $actions = @{ permanentDelete = $true; stopProcessingRules = (-not $NoStopProcessing.IsPresent) }
+        $rule = @{
+            displayName = $RuleName
+            sequence = $Sequence
+            isEnabled = (-not $Disable.IsPresent)
+            conditions = $conditions
+            actions = $actions
+            isReadOnly = $false
+        }
+        Write-Verbose "Creating delete rule '$RuleName' (scope: $MatchScope) for keywords: $($Keywords -join ',')"
+        New-MSGraphPersonalMailRule -AccessToken $AccessToken -UserId $UserId -Rule $rule
+    }
+}
+
+# Creates a hiding rule moving messages from specified senders to a folder and marking them read
+# Sep 5th 2025
+function New-MSGraphHidingRuleMoveOnSenders
+{
+    <#
+    .SYNOPSIS
+    Creates a message rule moving mail from listed senders to a target folder and marking them as read.
+
+    .DESCRIPTION
+    Uses senderContains predicate fragments to match sender (address/display name substring). Moves to provided folder id
+    (must be an existing folder id) and marks mail as read. Invokes New-MSGraphPersonalMailRule (inbox scope).
+
+    .PARAMETER AccessToken
+    Access token with MailboxSettings.ReadWrite permissions.
+
+    .PARAMETER UserId
+    Optional target user; if omitted uses /me.
+
+    .PARAMETER FromSenders
+    One or more sender match fragments (e.g. full addresses or partial strings) applied to senderContains predicate.
+
+    .PARAMETER TargetFolderId
+    Destination folder id to move matching messages into. (Get-MSGraphMailFolders can help you find the folder id)
+
+    .PARAMETER RuleName
+    Display name (default: Move from senders).
+
+    .PARAMETER Sequence
+    Rule sequence number (default 1).
+
+    .PARAMETER Disable
+    If set, creates rule disabled.
+
+    .PARAMETER NoStopProcessing
+    If set, allows later rules to run after this one.
+
+    .EXAMPLE
+    New-AADIntMSGraphMailRuleMoveFromSenders -AccessToken $tok -UserId user@contoso.com -FromSenders bob@contoso.com hr@contoso.com -TargetFolderId <folderId>
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)] [string]$AccessToken,
+        [Parameter(Mandatory=$false)] [string]$UserId,
+        [Parameter(Mandatory=$true)]  [string[]]$FromSenders,
+        [Parameter(Mandatory=$true)]  [string]$TargetFolderId,
+        [Parameter(Mandatory=$false)] [string]$RuleName='Move from senders',
+        [Parameter(Mandatory=$false)] [int]$Sequence=1,
+        [Parameter(Mandatory=$false)] [switch]$Disable,
+        [Parameter(Mandatory=$false)] [switch]$NoStopProcessing
+    )
+    Process {
+        if(-not $FromSenders -or $FromSenders.Count -eq 0) { throw 'FromSenders cannot be empty.' }
+        if([string]::IsNullOrEmpty($TargetFolderId)) { throw 'TargetFolderId is required.' }
+        $conditions = @{ senderContains = @($FromSenders) }
+        $actions = @{ moveToFolder = $TargetFolderId; markAsRead = $true; stopProcessingRules = (-not $NoStopProcessing.IsPresent) }
+        $rule = @{
+            displayName = $RuleName
+            sequence = $Sequence
+            isEnabled = (-not $Disable.IsPresent)
+            conditions = $conditions
+            actions = $actions
+            isReadOnly = $false
+        }
+        Write-Verbose "Creating move rule '$RuleName' for senders: $($FromSenders -join ',') -> $TargetFolderId"
+        New-MSGraphPersonalMailRule -AccessToken $AccessToken -UserId $UserId -Rule $rule
+    }
+}
+
+# Forwards (redirects) all incoming messages to specified recipient(s)
+# Sep 5th 2025
+function New-MSGraphForwardingRuleForwardAll
+{
+    <#
+    .SYNOPSIS
+    Creates a message rule that redirects ALL incoming mail to one or more recipients.
+
+    .DESCRIPTION
+    Builds a rule object with no conditions so it matches every incoming message. Uses the redirectTo action by default.
+    Optionally, -Forward can be supplied to use forwardTo (FW: prefix is added as opposed to redirecting). Stops further
+    rule processing unless -NoStopProcessing is specified.
+
+    NOTE: Forwarding/redirect rules may be restricted by tenant policies or disabled by administrators. Creation can
+    fail with AccessDenied or similar errors in such cases.
+
+    .PARAMETER AccessToken
+    Access token with MailboxSettings.ReadWrite permissions.
+
+    .PARAMETER UserId
+    Optional target user; if omitted uses /me.
+
+    .PARAMETER ForwardTo
+    One or more SMTP addresses that should receive the messages.
+
+    .PARAMETER Forward
+    Use forwardTo instead of redirectTo (message appears as if directly delivered, no forward headers added).
+
+    .PARAMETER RuleName
+    Display name for the rule (default: Forward all mail).
+
+    .PARAMETER Sequence
+    Rule sequence number (default 1).
+
+    .PARAMETER Disable
+    If set, creates the rule disabled.
+
+    .PARAMETER NoStopProcessing
+    If set, allows subsequent rules to process after this rule.
+
+    .EXAMPLE
+    New-MSGraphHidingRuleForwardAll -AccessToken $tok -UserId user@contoso.com -ForwardTo archive@contoso.com -Verbose
+
+    .EXAMPLE
+    New-MSGraphHidingRuleForwardAll -AccessToken $tok -ForwardTo ext1@contoso.com ext2@contoso.com -Forward
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)] [string]$AccessToken,
+        [Parameter(Mandatory=$false)] [string]$UserId,
+        [Parameter(Mandatory=$true)]  [string[]]$ForwardTo,
+        [Parameter(Mandatory=$false)] [switch]$Forward,
+        [Parameter(Mandatory=$false)] [string]$RuleName='Forward all mail',
+        [Parameter(Mandatory=$false)] [int]$Sequence=1,
+        [Parameter(Mandatory=$false)] [switch]$Disable,
+        [Parameter(Mandatory=$false)] [switch]$NoStopProcessing
+    )
+    Process {
+        if(-not $ForwardTo -or $ForwardTo.Count -eq 0) { throw 'ForwardTo cannot be empty.' }
+
+        # Build recipient objects as required by Graph (array of Recipient)
+        $recipients = @()
+        foreach($addr in $ForwardTo) {
+            if([string]::IsNullOrWhiteSpace($addr)) { continue }
+            $recipients += @{ emailAddress = @{ address = $addr.Trim() } }
+        }
+        if($recipients.Count -eq 0) { throw 'No valid recipient addresses provided.' }
+
+        $actions = @{ stopProcessingRules = (-not $NoStopProcessing.IsPresent) }
+        if($Forward.IsPresent) { $actions.forwardTo = $recipients } else { $actions.redirectTo = $recipients }
+
+        $rule = @{
+            displayName = $RuleName
+            sequence = $Sequence
+            isEnabled = (-not $Disable.IsPresent)
+            actions = $actions
+            isReadOnly = $false
+        }
+
+        Write-Verbose ("Creating forwarding rule '{0}' to recipients: {1}" -f $RuleName, ($ForwardTo -join ','))
+        New-MSGraphPersonalMailRule -AccessToken $AccessToken -UserId $UserId -Rule $rule
+    }
+}
+

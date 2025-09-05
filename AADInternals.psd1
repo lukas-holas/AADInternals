@@ -378,6 +378,11 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-MSGraphRootSiteDownloadFiles"
     "Get-MSGraphMailboxContent"
     "Get-MSGraphMailFolders"
+    "New-MSGraphPersonalMailRule"
+    "Remove-MSGraphPersonalMailRule"
+    "New-MSGraphHidingRuleDeleteOnKeywords"
+    "New-MSGraphHidingRuleMoveOnSenders"
+    "New-MSGraphForwardingRuleForwardAll"
     ## Integrated additions
     "Get-MSGraphApplication"
     "Get-MSGraphApplicationOwners"
