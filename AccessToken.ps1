@@ -3389,12 +3389,11 @@ function Get-AccessTokenFromCacheRefreshToken
 #        {
 #            $NewResource = $Resource
 #        }
-
-        $tokens = Get-AccessTokenFromCache -ClientId $ClientId -Resource $Resource -IncludeRefreshToken
-        $access_token = $tokens[0]
+        $tokens = Get-AccessTokenFromCache -AccessToken $null -ClientId $ClientId -Resource $Resource -IncludeRefreshToken
+        $token_tid = (Read-Accesstoken -AccessToken $tokens[0]).tid
         $refresh_token = $tokens[1]
         # Get the token
-        $AccessToken = Get-AccessTokenWithRefreshToken -Resource $NewResource -ClientId $ClientId -SaveToCache $SaveToCache -RefreshToken $refresh_token -TenantId (Read-Accesstoken $access_token).tid
+        $AccessToken = Get-AccessTokenWithRefreshToken -Resource $NewResource -ClientId $ClientId -SaveToCache $SaveToCache -RefreshToken $refresh_token -TenantId $token_tid
         if ([string]::IsNullOrEmpty($AccessToken))
         {
             Throw "No access token returned! There may be an empty entry in the cache."
