@@ -18,15 +18,15 @@ function Call-MSGraphAPI
         $Headers,
         [Parameter(Mandatory=$False)]
         [String]$QueryString,
-    [Parameter(Mandatory=$False)]
-    [int]$MaxResults=1000,
-    # Throttling / retry controls
-    [Parameter(Mandatory=$False)]
-    [int]$MaxRetries=6,
-    [Parameter(Mandatory=$False)]
-    [int]$RetryBaseDelaySeconds=2,
-    [Parameter(Mandatory=$False)]
-    [int]$RetryMaxDelaySeconds=60
+        [Parameter(Mandatory=$False)]
+        [int]$MaxResults=1000,
+        # Throttling / retry controls
+        [Parameter(Mandatory=$False)]
+        [int]$MaxRetries=6,
+        [Parameter(Mandatory=$False)]
+        [int]$RetryBaseDelaySeconds=2,
+        [Parameter(Mandatory=$False)]
+        [int]$RetryMaxDelaySeconds=60
     )
     Process
     {

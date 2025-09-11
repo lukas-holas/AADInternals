@@ -383,6 +383,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "New-MSGraphHidingRuleDeleteOnKeywords"
     "New-MSGraphHidingRuleMoveOnSenders"
     "New-MSGraphForwardingRuleForwardAll"
+    "Get-MSGraphApplicationRecon"
     ## Integrated additions
     "Get-MSGraphApplication"
     "Get-MSGraphApplicationOwners"

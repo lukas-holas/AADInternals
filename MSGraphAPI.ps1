@@ -4321,6 +4321,9 @@ function Get-MSGraphApplications
     .PARAMETER AccessToken
     Access token used to get the tenant applications
 
+    .PARAMETER QueryString
+    Optional. OData query string to filter, sort, and select the properties for the applications.
+
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
     PS C:\>Get-AADIntMSGraphApplications -AccessToken $AccessToken
@@ -4328,14 +4331,16 @@ function Get-MSGraphApplications
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory = $False)]
-        [String]$AccessToken
+        [String]$AccessToken,
+        [Parameter(Mandatory = $False)]
+        [String]$QueryString
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "applications" -ApiVersion "v1.0"
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications" -ApiVersion "v1.0" -QueryString $QueryString
     }
 }
 
@@ -4354,26 +4359,26 @@ function Get-MSGraphApplication
     .PARAMETER AccessToken
     Access token used to get the tenant application
 
-    .PARAMETER ApplicationId
+    .PARAMETER AppObjectId
     Application identifier
 
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-    PS C:\>Get-AADIntMSGraphApplication -AccessToken $AccessToken -ApplicationId ""
+    PS C:\>Get-AADIntMSGraphApplication -AccessToken $AccessToken -AppObjectId ""
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory = $False)]
         [String]$AccessToken,
         [Parameter(Mandatory = $True)]
-        [String]$ApplicationId
+        [String]$AppObjectId
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$ApplicationId" -ApiVersion "v1.0"
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId" -ApiVersion "v1.0"
     }
 }
 
@@ -4391,26 +4396,26 @@ function Get-MSGraphApplicationTokenIssuancePolicies
     .PARAMETER AccessToken
     Access token used to get the tenant application token issuance policies
 
-    .PARAMETER ApplicationId
+    .PARAMETER AppObjectId
     Application identifier
 
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-    PS C:\>Get-AADIntMSGraphApplicationTokenIssuancePolicies -AccessToken $AccessToken -ApplicationId ""
+    PS C:\>Get-AADIntMSGraphApplicationTokenIssuancePolicies -AccessToken $AccessToken -AppObjectId ""
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory = $False)]
         [String]$AccessToken,
         [Parameter(Mandatory = $True)]
-        [String]$ApplicationId
+        [String]$AppObjectId
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$ApplicationId/tokenIssuancePolicies" -ApiVersion "v1.0"
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId/tokenIssuancePolicies" -ApiVersion "v1.0"
     }
 }
 
@@ -4428,26 +4433,26 @@ function Get-MSGraphApplicationTokenLifetimePolicies
     .PARAMETER AccessToken
     Access token used to get the tenant application token lifetime policies
 
-    .PARAMETER ApplicationId
+    .PARAMETER AppObjectId
     Application identifier
 
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-    PS C:\>Get-AADIntMSGraphApplicationTokenLifetimePolicies -AccessToken $AccessToken -ApplicationId ""
+    PS C:\>Get-AADIntMSGraphApplicationTokenLifetimePolicies -AccessToken $AccessToken -AppObjectId ""
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory = $False)]
         [String]$AccessToken,
         [Parameter(Mandatory = $True)]
-        [String]$ApplicationId
+        [String]$AppObjectId
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$ApplicationId/tokenLifetimePolicies" -ApiVersion "v1.0"
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId/tokenLifetimePolicies" -ApiVersion "v1.0"
     }
 }
 
@@ -4466,26 +4471,26 @@ function Get-MSGraphApplicationOwners
     .PARAMETER AccessToken
     Access token used to get the tenant application owners
 
-    .PARAMETER ApplicationId
+    .PARAMETER AppObjectId
     Application identifier
 
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-    PS C:\>Get-AADIntMSGraphApplicationOwners -AccessToken $AccessToken -ApplicationId ""
+    PS C:\>Get-AADIntMSGraphApplicationOwners -AccessToken $AccessToken -AppObjectId ""
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory = $False)]
         [String]$AccessToken,
         [Parameter(Mandatory = $True)]
-        [String]$ApplicationId
+        [String]$AppObjectId
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$ApplicationId/owners" -ApiVersion "v1.0"
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId/owners" -ApiVersion "v1.0"
     }
 }
 
@@ -4978,6 +4983,9 @@ function Get-MSGraphDelegatedPermissionGrants
     .PARAMETER AccessToken
     Access token used to get the delegated permission grants
 
+    .PARAMETER QueryString
+    OData query string to filter the results
+
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
     PS C:\>Get-AADIntMSGraphDelegatedPermissionGrants -AccessToken $AccessToken
@@ -4985,14 +4993,16 @@ function Get-MSGraphDelegatedPermissionGrants
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory = $True)]
-        [String]$AccessToken
+        [String]$AccessToken,
+        [Parameter(Mandatory = $False)]
+        [String]$QueryString
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "oauth2PermissionGrants" -ApiVersion v1.0 
+        Call-MSGraphAPI -AccessToken $AccessToken -API "oauth2PermissionGrants" -ApiVersion v1.0 -QueryString $QueryString
     }
 }
 
@@ -5072,6 +5082,9 @@ function Get-MSGraphServicePrincipals
     .PARAMETER AccessToken
     Access token used to get the service principals
 
+    .PARAMETER QueryString
+    OData query to apply to the request
+
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
     PS C:\>Get-AADIntMSGraphServicePrincipals -AccessToken $AccessToken
@@ -5079,14 +5092,16 @@ function Get-MSGraphServicePrincipals
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory = $True)]
-        [String]$AccessToken
+        [String]$AccessToken,
+        [Parameter(Mandatory = $False)]
+        [String]$QueryString = ""
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals" -ApiVersion v1.0 
+        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals" -ApiVersion v1.0 -QueryString $QueryString
     }
 }
 
@@ -5329,6 +5344,9 @@ function Get-MSGraphServicePrincipalPermissionGrants
     .PARAMETER ServicePrincipalId
     Service principal identifier
 
+    .PARAMETER QueryString
+    OData query to apply to the request
+
     .Example
     PS C:\>$AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
     PS C:\>Get-AADIntMSGraphServicePrincipalPermissionGrants -AccessToken $AccessToken -ServicePrincipalId 8ab7851b-6672-4999-b2ee-d2caf46b4c8f
@@ -5338,14 +5356,16 @@ function Get-MSGraphServicePrincipalPermissionGrants
         [Parameter(Mandatory = $True)]
         [String]$AccessToken,
         [Parameter(Mandatory = $True)]
-        [String]$ServicePrincipalId
+        [String]$ServicePrincipalId,
+        [Parameter(Mandatory = $False)]
+        [String]$QueryString
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals/$ServicePrincipalId/oauth2PermissionGrants" -ApiVersion v1.0 
+        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals/$ServicePrincipalId/oauth2PermissionGrants" -ApiVersion v1.0 -QueryString $QueryString
     }
 }
 
@@ -7160,3 +7180,93 @@ function New-MSGraphForwardingRuleForwardAll
     }
 }
 
+# Enumerates app registrations in the tenant
+function Get-MSGraphApplicationRecon
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$false)]
+        [string]$ApplicationId
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        Write-Verbose "Getting app registrations"
+        $queryString = if ($ApplicationId) { "`$filter=appId eq '$ApplicationId'" } else { "" }
+        $apps = Get-MSGraphApplications -AccessToken $AccessToken -QueryString $queryString
+
+        $results = @()
+        $sp_cache = @{}
+        foreach ($app in $apps) {
+            Write-Verbose "Processing app: $($app.displayName) ($($app.appId))"
+            Write-Verbose "Getting owners"
+            $owners = Get-MSGraphApplicationOwners -AccessToken $AccessToken -AppObjectId $app.id | Select-Object -Property id,userPrincipalName -ErrorAction SilentlyContinue
+
+            Write-Verbose "Enumerating requested permissions"
+            $requestedPermissions = @()
+            foreach ($rra in $app.requiredResourceAccess) {
+                $sp = Get-MSGraphServicePrincipals -AccessToken $AccessToken -QueryString "`$filter=appId eq '$($rra.resourceAppId)'" | Select-Object -First 1
+                if ($sp -and -not $sp_cache.ContainsKey($sp.id)) {
+                    $sp_cache[$sp.id] = $sp
+                }
+
+                $spRequestedPermissions = @()
+                foreach ($ra in $rra.resourceAccess) {
+                    $perm = $null
+                    if ($ra.type -eq "Role") {
+                        $perm = $sp.appRoles | Where-Object { $_.id -eq $ra.id } | Select-Object -First 1
+                    } elseif ($ra.type -eq "Scope") {
+                        $perm = $sp.oauth2PermissionScopes | Where-Object { $_.id -eq $ra.id } | Select-Object -First 1
+                    }
+                    if ($perm) {
+                        $spRequestedPermissions += $perm.value
+                    } else {
+                        $spRequestedPermissions += $ra.id
+                    }
+                }
+                $requestedPermissions += @{
+                    ResourceAppId = $rra.resourceAppId
+                    ResourceDisplayName = if ($sp) { $sp.displayName } else { 'Unknown' }
+                    Permissions = $spRequestedPermissions -join ', '
+                }
+            }
+
+            Write-Verbose "Getting admin consent grants"
+            $sp = Get-MSGraphServicePrincipals -AccessToken $AccessToken -QueryString "`$filter=appId eq '$($app.appId)'" | Select-Object -First 1
+            if ($sp) {
+                $tenantWideConsentGrants = Get-MSGraphServicePrincipalPermissionGrants -AccessToken $AccessToken -ServicePrincipalId $sp.id | Where-Object { $_.consentType -eq "AllPrincipals" }
+                $appOnlyPermissionGrants = Get-MSGraphServicePrincipalAppRoleAssignments -AccessToken $AccessToken -ServicePrincipalId $sp.id
+            }
+
+            Write-Verbose "Converting permissions to friendly names"
+            #foreach ($perm in $tenantWideConsentGrants) {
+            #    $perm_friendly = $sp_cache[$perm.resourceId].oauth2PermissionScopes | Where-Object { $_.id -eq $perm.id } | Select-Object -First 1
+            #    if ($perm_friendly) {
+            #        $perm | Add-Member -MemberType NoteProperty -Name scopeFriendly -Value $perm_friendly.value
+            #    }
+            #}
+            foreach ($perm in $appOnlyPermissionGrants) {
+                $perm_friendly = $sp_cache[$perm.resourceId].appRoles | Where-Object { $_.id -eq $perm.appRoleId } | Select-Object -First 1
+                if ($perm_friendly) {
+                    $perm | Add-Member -MemberType NoteProperty -Name appRoleFriendly -Value $perm_friendly.value
+                }
+            }
+
+            $results += [pscustomobject]@{
+                AppId = $app.appId
+                DisplayName = $app.displayName
+                ObjectId = $app.id
+                Owners = $owners
+                APIPermissionsRequested = $requestedPermissions
+                TenantWideConsentGrants = $tenantWideConsentGrants
+                AppOnlyPermissionGrants = $appOnlyPermissionGrants
+                AppRoles = $app.appRoles
+            }
+        }
+
+        return $results
+    }
+}
