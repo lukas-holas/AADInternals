@@ -7323,3 +7323,122 @@ function Remove-MSGraphApplicationPassword
         Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId/removePassword" -ApiVersion "v1.0" -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type' = 'application/json' }
     }
 }
+
+# Update existing app registration (PATCH /applications/{applicationObjectId} wrapper)
+function Update-MSGraphApplication
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppObjectId,
+        [Parameter(Mandatory=$true)]
+        $Body
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1950a258-227b-4e31-a9cf-717495945fc2"
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId" -ApiVersion "v1.0" -Method PATCH -Body ($Body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type' = 'application/json' }
+    }
+}
+
+# Add Graph API permissions (both application and delegated) to an app registration's (requested) API permissions (scope)
+function Add-MSGraphGraphPermissionsToApplication
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppObjectId,
+        [Parameter(Mandatory=$true)]
+        $GraphAppRoles # array of { id: "", type: "(Scope|Role)" } (permission id can be obtained from docs https://learn.microsoft.com/en-us/graph/permissions-reference or programmatically via Get-MSGraphServicePrincipals)
+    )
+    Process
+    {
+        # Normalize requested roles to array
+        if($GraphAppRoles -isnot [System.Collections.IEnumerable] -or $GraphAppRoles -is [string]) {
+            $GraphAppRoles = @($GraphAppRoles)
+        }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
+        $app = Get-MSGraphApplication -AccessToken $AccessToken -AppObjectId $AppObjectId
+        if(-not $app) { throw "Application $AppObjectId not found." }
+
+        # Build mutable clone of requiredResourceAccess
+        $required = New-Object System.Collections.Generic.List[object]
+        if($app.requiredResourceAccess){
+            foreach($r in $app.requiredResourceAccess){
+                $entry = @{
+                    resourceAppId  = $r.resourceAppId
+                    resourceAccess = New-Object System.Collections.Generic.List[object]
+                }
+                foreach($ra in $r.resourceAccess){
+                    $entry.resourceAccess.Add(@{
+                        id   = $ra.id
+                        type = $ra.type
+                    }) | Out-Null
+                }
+                $required.Add($entry) | Out-Null
+            }
+        }
+
+        $graphAppId = '00000003-0000-0000-c000-000000000000'
+        # Locate existing Graph block (single)
+        $graphIndex = -1
+        for($i=0; $i -lt $required.Count; $i++){
+            if($required[$i].resourceAppId -eq $graphAppId){
+                $graphIndex = $i; break
+            }
+        }
+        if($graphIndex -lt 0){
+            $graphEntry = @{
+                resourceAppId  = $graphAppId
+                resourceAccess = New-Object System.Collections.Generic.List[object]
+            }
+            $required.Add($graphEntry) | Out-Null
+            $graphIndex = $required.Count - 1
+        }
+        $graphEntry = $required[$graphIndex]
+
+        $added = 0
+        foreach($gr in $GraphAppRoles){
+            if(-not $gr.id -or -not $gr.type){ throw "Each GraphAppRoles element needs 'id' and 'type'." }
+            $exists = $false
+            foreach($cur in $graphEntry.resourceAccess){
+                if($cur.id -eq $gr.id -and $cur.type -eq $gr.type){ $exists = $true; break }
+            }
+            if(-not $exists){
+                $graphEntry.resourceAccess.Add(@{
+                    id   = $gr.id
+                    type = $gr.type
+                }) | Out-Null
+                $added++
+            }
+        }
+
+        if($added -eq 0){
+            Write-Verbose "No new Graph permissions to add."
+            return [pscustomobject]@{
+                AppObjectId            = $AppObjectId
+                AddedCount             = 0
+                RequiredResourceAccess = $required
+                Patched                = $false
+            }
+        }
+
+        $body = @{ requiredResourceAccess = $required }
+        Write-Verbose "Adding $added Graph permission(s) to application $AppObjectId"
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId" -ApiVersion 'v1.0' -Method PATCH -Body ($body | ConvertTo-Json -Depth 10) -Headers @{ 'Content-Type'='application/json' }
+
+        # Return freshly updated requiredResourceAccess (optionally re-fetch)
+        [pscustomobject]@{
+            AppObjectId            = $AppObjectId
+            AddedCount             = $added
+            RequiredResourceAccess = $required
+            Patched                = $true
+        }
+    }
+}
