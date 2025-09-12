@@ -384,6 +384,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "New-MSGraphHidingRuleMoveOnSenders"
     "New-MSGraphForwardingRuleForwardAll"
     "Get-MSGraphApplicationRecon"
+    "New-MSGraphApplicationPassword"
+    "Remove-MSGraphApplicationPassword"
     ## Integrated additions
     "Get-MSGraphApplication"
     "Get-MSGraphApplicationOwners"

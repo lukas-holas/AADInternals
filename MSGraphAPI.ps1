@@ -7270,3 +7270,56 @@ function Get-MSGraphApplicationRecon
         return $results
     }
 }
+
+
+# Add password credential to an app registration
+function New-MSGraphApplicationPassword
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppObjectId,
+        [Parameter(Mandatory=$false)]
+        [string]$DisplayName,
+        [Parameter(Mandatory=$false)]
+        [datetime]$EndDateTime
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1950a258-227b-4e31-a9cf-717495945fc2"
+
+        $body = @{ passwordCredential = @{} }
+        if ($DisplayName) {
+            $body.passwordCredential.displayName = $DisplayName
+        }
+        if ($EndDateTime) {
+            $body.passwordCredential.endDateTime = $EndDateTime
+        }
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId/addPassword" -ApiVersion "v1.0" -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type' = 'application/json' }
+    }
+}
+
+# Removes a password credential from an app registration
+function Remove-MSGraphApplicationPassword
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppObjectId,
+        [Parameter(Mandatory=$true)]
+        [string]$KeyId
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1950a258-227b-4e31-a9cf-717495945fc2"
+
+        $body = @{ keyId = $KeyId }
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId/removePassword" -ApiVersion "v1.0" -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type' = 'application/json' }
+    }
+}
