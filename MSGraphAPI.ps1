@@ -7354,13 +7354,13 @@ function Add-MSGraphGraphPermissionsToApplication
         [Parameter(Mandatory=$true)]
         [string]$AppObjectId,
         [Parameter(Mandatory=$true)]
-        $GraphAppRoles # array of { id: "", type: "(Scope|Role)" } (permission id can be obtained from docs https://learn.microsoft.com/en-us/graph/permissions-reference or programmatically via Get-MSGraphServicePrincipals)
+        $GraphPermissions # array of { id: "", type: "(Scope|Role)" } (permission id can be obtained from docs https://learn.microsoft.com/en-us/graph/permissions-reference or programmatically via Get-MSGraphServicePrincipals)
     )
     Process
     {
         # Normalize requested roles to array
-        if($GraphAppRoles -isnot [System.Collections.IEnumerable] -or $GraphAppRoles -is [string]) {
-            $GraphAppRoles = @($GraphAppRoles)
+        if($GraphPermissions -isnot [System.Collections.IEnumerable] -or $GraphPermissions -is [string]) {
+            $GraphPermissions = @($GraphPermissions)
         }
 
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
@@ -7404,8 +7404,8 @@ function Add-MSGraphGraphPermissionsToApplication
         $graphEntry = $required[$graphIndex]
 
         $added = 0
-        foreach($gr in $GraphAppRoles){
-            if(-not $gr.id -or -not $gr.type){ throw "Each GraphAppRoles element needs 'id' and 'type'." }
+        foreach($gr in $GraphPermissions){
+            if(-not $gr.id -or -not $gr.type){ throw "Each GraphPermissions element needs 'id' and 'type'." }
             $exists = $false
             foreach($cur in $graphEntry.resourceAccess){
                 if($cur.id -eq $gr.id -and $cur.type -eq $gr.type){ $exists = $true; break }
