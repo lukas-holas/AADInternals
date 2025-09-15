@@ -388,6 +388,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Remove-MSGraphApplicationPassword"
     "Update-MSGraphApplication"
     "Add-MSGraphGraphPermissionsToApplication"
+    "New-MSGraphDelegatedPermissionAdminConsent"
+    "New-MSGraphAppRoleAssignmentAdminConsent"
     ## Integrated additions
     "Get-MSGraphApplication"
     "Get-MSGraphApplicationOwners"

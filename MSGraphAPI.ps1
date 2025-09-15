@@ -7442,3 +7442,79 @@ function Add-MSGraphGraphPermissionsToApplication
         }
     }
 }
+
+# Admin consent delegated permissions for an app registration
+function New-MSGraphDelegatedPermissionAdminConsent {
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppSpObjectId, # Object id of the service principal corresponding to the app registration
+        [Parameter(Mandatory=$false)]
+        [string]$ResourceAppId = '00000003-0000-0000-c000-000000000000', # Graph API
+        [Parameter(Mandatory=$true)]
+        [string[]]$Scope #display names of delegated permissions (e.g User.Read)
+    )
+    Process
+    {
+        if(-not $Scope -or $Scope.Count -eq 0) { throw 'Scope cannot be empty.' }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
+
+        # Get resource service principal
+        $resSp = Get-MSGraphServicePrincipals -AccessToken $AccessToken -QueryString ("`$filter=appId eq '$ResourceAppId'") | Select-Object -First 1
+        if(-not $resSp) { throw "Resource service principal for appId $ResourceAppId not found." }
+        $ResourceObjectId = $resSp.id
+        if(-not $ResourceObjectId) { throw "Resource service principal for appId $ResourceAppId has no id." }
+
+        # Build scope string
+        $scopeStr = [string]::Join(' ', $Scope)
+
+        $body = @{
+            clientId     = $AppSpObjectId
+            consentType  = 'AllPrincipals'
+            resourceId   = $ResourceObjectId
+            scope        = $scopeStr
+        }
+
+        Write-Verbose ("Granting admin consent for app {0} on resource {1} for scopes: {2}" -f $AppSpObjectId, $ResourceObjectId, $scopeStr)
+        Call-MSGraphAPI -AccessToken $AccessToken -API "oauth2PermissionGrants" -ApiVersion 'v1.0' -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type'='application/json' }
+    }
+}
+
+# Admin consent app role assignment for an app registration
+function New-MSGraphAppRoleAssignmentAdminConsent {
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppSpObjectId,
+        [Parameter(Mandatory=$false)]
+        [string]$ResourceAppId = '00000003-0000-0000-c000-000000000000', # Graph API
+        [Parameter(Mandatory=$true)]
+        [string]$RoleId
+    )
+    Process
+    {        
+        if([string]::IsNullOrEmpty($RoleId)) { throw 'RoleId cannot be empty.' }
+        
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
+
+        # Get resource service principal
+        $resSp = Get-MSGraphServicePrincipals -AccessToken $AccessToken -QueryString ("`$filter=appId eq '$ResourceAppId'") | Select-Object -First 1
+        if(-not $resSp) { throw "Resource service principal for appId $ResourceAppId not found." }
+        $ResourceObjectId = $resSp.id
+        if(-not $ResourceObjectId) { throw "Resource service principal for appId $ResourceAppId has no id." }
+
+        $body = @{
+            principalId  = $AppSpObjectId
+            resourceId   = $ResourceObjectId
+            appRoleId    = $RoleId
+        }
+
+        Write-Verbose ("Granting admin consent for app {0} on resource {1} for role: {2}" -f $AppSpObjectId, $ResourceObjectId, $RoleId)
+        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals/$ResourceObjectId/appRoleAssignedTo" -ApiVersion 'v1.0' -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type'='application/json' }
+    }
+}
