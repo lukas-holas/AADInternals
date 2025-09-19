@@ -390,6 +390,9 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Add-MSGraphGraphPermissionsToApplication"
     "New-MSGraphDelegatedPermissionAdminConsent"
     "New-MSGraphAppRoleAssignmentAdminConsent"
+    "New-MSGraphApplication"
+    "Remove-MSGraphApplication"
+    "New-MSGraphServicePrincipal"
     ## Integrated additions
     "Get-MSGraphApplication"
     "Get-MSGraphApplicationOwners"

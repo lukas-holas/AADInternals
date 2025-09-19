@@ -7443,7 +7443,7 @@ function Add-MSGraphGraphPermissionsToApplication
     }
 }
 
-# Admin consent delegated permissions for an app registration
+# Admin consent delegated permissions for an app registration (tenant-wide consent delegated permissions to an app)
 function New-MSGraphDelegatedPermissionAdminConsent {
     [cmdletbinding()]
     Param(
@@ -7483,14 +7483,14 @@ function New-MSGraphDelegatedPermissionAdminConsent {
     }
 }
 
-# Admin consent app role assignment for an app registration
+# Admin consent app role assignment for an app registration (assign application permissions to an app)
 function New-MSGraphAppRoleAssignmentAdminConsent {
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$false)]
         [string]$AccessToken,
         [Parameter(Mandatory=$true)]
-        [string]$AppSpObjectId,
+        [string]$AppSpObjectId, # Object id of the service principal corresponding to the app registration
         [Parameter(Mandatory=$false)]
         [string]$ResourceAppId = '00000003-0000-0000-c000-000000000000', # Graph API
         [Parameter(Mandatory=$true)]
@@ -7516,5 +7516,85 @@ function New-MSGraphAppRoleAssignmentAdminConsent {
 
         Write-Verbose ("Granting admin consent for app {0} on resource {1} for role: {2}" -f $AppSpObjectId, $ResourceObjectId, $RoleId)
         Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals/$ResourceObjectId/appRoleAssignedTo" -ApiVersion 'v1.0' -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type'='application/json' }
+    }
+}
+
+# Create new app registration
+function New-MSGraphApplication {
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$DisplayName,
+        [Parameter(Mandatory=$false)]
+        $Body = @{passwordCredentials = @(@{})} # additional properties as hashtable or PSCustomObject
+    )
+    Process
+    {
+        if([string]::IsNullOrEmpty($DisplayName)) { throw 'DisplayName is required.' }
+        if(-not $Body -or ($Body -isnot [System.Collections.IDictionary] -and $Body -isnot [pscustomobject])) { throw 'Body must be a hashtable or PSCustomObject.' }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
+
+        # Ensure displayName is set
+        if(-not $Body.displayName) { $Body.displayName = $DisplayName }
+
+        Write-Verbose ("Creating new app registration '{0}'" -f $DisplayName)
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications" -ApiVersion 'v1.0' -Method POST -Body ($Body | ConvertTo-Json -Depth 10) -Headers @{ 'Content-Type'='application/json' }
+    }
+}
+
+# Remove an app registration
+function Remove-MSGraphApplication {
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$false)]
+        [string]$AppObjectId,
+        [Parameter(Mandatory=$false)]
+        [string]$AppId
+    )
+    Process
+    {
+        if([string]::IsNullOrEmpty($AppObjectId) -and [string]::IsNullOrEmpty($AppId)) { throw 'Provide AppObjectId or AppId.' }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
+
+        if($AppObjectId) {
+            Write-Verbose ("Removing app registration by object id '{0}'" -f $AppObjectId)
+            Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId" -ApiVersion 'v1.0' -Method DELETE
+            return
+        }
+
+        Write-Verbose ("Deleting app registration '{0}'" -f $AppId)
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications(appId='$AppId')" -ApiVersion 'v1.0' -Method DELETE
+    }
+}
+
+# Create a new service principal (app instance in the tenant)
+function New-MSGraphServicePrincipal {
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppId, # application (client) id of the corresponding app registration
+        [Parameter(Mandatory=$false)]
+        $Body = @{} # additional properties as hashtable or PSCustomObject
+    )
+    Process
+    {
+        if([string]::IsNullOrEmpty($AppId)) { throw 'AppId is required.' }
+        if(-not $Body -or ($Body -isnot [System.Collections.IDictionary] -and $Body -isnot [pscustomobject])) { throw 'Body must be a hashtable or PSCustomObject.' }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
+
+        # Ensure appId is set
+        if(-not $Body.appId) { $Body.appId = $AppId }
+
+        Write-Verbose ("Creating new service principal for appId '{0}'" -f $AppId)
+        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals" -ApiVersion 'v1.0' -Method POST -Body ($Body | ConvertTo-Json -Depth 10) -Headers @{ 'Content-Type'='application/json' }
     }
 }
