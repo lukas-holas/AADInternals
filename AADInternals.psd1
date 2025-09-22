@@ -146,7 +146,6 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenFromCache"
     "Get-AccessToken"
     "Get-AccessTokenWithRefreshToken"
-    "Get-AccessTokenFromCacheRefreshToken"
     "Get-AccessTokenForAADGraph"
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
@@ -174,6 +173,9 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AppConsentInfo"
     "Get-ESTSAUTHCookie"
     "Get-AccessTokenForCompliance"
+    # My additions
+    "Get-AccessTokenFromCacheRefreshToken"
+    "Get-AccessTokenUsingAppSecret"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"

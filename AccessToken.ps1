@@ -3405,3 +3405,27 @@ function Get-AccessTokenFromCacheRefreshToken
         }
     }
 }
+
+# Get access token using app registration secret
+function Get-AccessTokenUsingAppSecret
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$TenantId,
+        [Parameter(Mandatory=$True)]
+        [String]$AppId,
+        [Parameter(Mandatory=$True)]
+        [String]$AppSecret
+    )
+    
+    $body = @{
+        "client_id"=     $AppId
+        "client_secret"= $AppSecret
+        "grant_type"=    "client_credentials"
+        "scope"=         "https://graph.microsoft.com/.default"
+    }
+
+    $tokenResponse = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" -Method POST -ContentType "application/x-www-form-urlencoded" -Body $body
+    return $tokenResponse.access_token
+}
