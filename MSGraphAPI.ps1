@@ -7324,6 +7324,77 @@ function Remove-MSGraphApplicationPassword
     }
 }
 
+# Disable app instance (a service principal) property lock
+function Remove-MSGraphApplicationInstancePropertyLock
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$AppObjectId
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1950a258-227b-4e31-a9cf-717495945fc2"
+
+        $body = @{ servicePrincipalLockConfiguration = @{ isEnabled = $false } }
+        Call-MSGraphAPI -AccessToken $AccessToken -API "applications/$AppObjectId" -ApiVersion "v1.0" -Method PATCH -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type' = 'application/json' }
+    }
+}
+
+# Add password credential to a service principal
+function New-MSGraphServicePrincipalPassword
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$ServicePrincipalId,
+        [Parameter(Mandatory=$false)]
+        [string]$DisplayName,
+        [Parameter(Mandatory=$false)]
+        [datetime]$EndDateTime
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1950a258-227b-4e31-a9cf-717495945fc2"
+
+        $body = @{ passwordCredential = @{} }
+        if ($DisplayName) {
+            $body.passwordCredential.displayName = $DisplayName
+        }
+        if ($EndDateTime) {
+            $body.passwordCredential.endDateTime = $EndDateTime
+        }
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals/$ServicePrincipalId/addPassword" -ApiVersion "v1.0" -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type' = 'application/json' }
+    }
+}
+
+# Removes a password credential from a service principal
+function Remove-MSGraphServicePrincipalPassword
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$ServicePrincipalId,
+        [Parameter(Mandatory=$true)]
+        [string]$KeyId
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1950a258-227b-4e31-a9cf-717495945fc2"
+
+        $body = @{ keyId = $KeyId }
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals/$ServicePrincipalId/removePassword" -ApiVersion "v1.0" -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type' = 'application/json' }
+    }
+}
+
 # Update existing app registration (PATCH /applications/{applicationObjectId} wrapper)
 function Update-MSGraphApplication
 {

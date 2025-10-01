@@ -395,6 +395,9 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "New-MSGraphApplication"
     "Remove-MSGraphApplication"
     "New-MSGraphServicePrincipal"
+    "New-MSGraphServicePrincipalPassword"
+    "Remove-MSGraphServicePrincipalPassword"
+    "Remove-MSGraphApplicationInstancePropertyLock"
     ## Integrated additions
     "Get-MSGraphApplication"
     "Get-MSGraphApplicationOwners"
