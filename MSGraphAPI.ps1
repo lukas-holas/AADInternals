@@ -7669,3 +7669,34 @@ function New-MSGraphServicePrincipal {
         Call-MSGraphAPI -AccessToken $AccessToken -API "servicePrincipals" -ApiVersion 'v1.0' -Method POST -Body ($Body | ConvertTo-Json -Depth 10) -Headers @{ 'Content-Type'='application/json' }
     }
 }
+
+# Add Entra ID role assignment to a principal (user, group, service principal)
+function New-MSGraphEntraRoleAssignment {
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [string]$RoleDefinitionId,
+        [Parameter(Mandatory=$true)]
+        [string]$PrincipalId,
+        [Parameter(Mandatory=$false)]
+        [string]$DirectoryScopeId = "/"
+    )
+    Process
+    {
+        if([string]::IsNullOrEmpty($RoleDefinitionId)) { throw 'RoleDefinitionId is required.' }
+        if([string]::IsNullOrEmpty($PrincipalId)) { throw 'PrincipalId is required.' }
+
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource 'https://graph.microsoft.com' -ClientId '1950a258-227b-4e31-a9cf-717495945fc2'
+
+        $body = @{
+            principalId      = $PrincipalId
+            roleDefinitionId = $RoleDefinitionId
+            directoryScopeId = $DirectoryScopeId
+        }
+
+        Write-Verbose ("Creating new role assignment for principal '{0}' with role '{1}'" -f $PrincipalId, $RoleDefinitionId)
+        Call-MSGraphAPI -AccessToken $AccessToken -API "roleManagement/directory/roleAssignments" -ApiVersion 'v1.0' -Method POST -Body ($body | ConvertTo-Json -Depth 5) -Headers @{ 'Content-Type'='application/json' }
+    }
+}
